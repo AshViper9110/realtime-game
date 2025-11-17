@@ -1,0 +1,17 @@
+@startuml
+actor User as ユーザー
+participant ブラウザ
+participant Server as サーバー
+
+autonumber
+
+note over ユーザー:メールとパスワードを入力する
+ユーザー -> ブラウザ:ログインを試す
+
+note over ブラウザ: サーバーに確認してもらう
+ブラウザ -> サーバー:ユーザー情報を確認
+
+サーバー --> ブラウザ:結果を返す
+ブラウザ --> ユーザー:「成功」「失敗」を表示
+
+@enduml

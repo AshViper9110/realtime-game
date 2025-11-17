@@ -7,11 +7,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MagicOnion.Server" Version="7.0.2" />
+    <PackageReference Include="MagicOnion.Abstractions" Version="7.0.6" />
+    <PackageReference Include="MagicOnion.Server" Version="7.0.6" />
+    <PackageReference Include="MagicOnion.Server.JsonTranscoding" Version="7.0.6" />
+    <PackageReference Include="MagicOnion.Server.JsonTranscoding.Swagger" Version="7.0.6" />
+    <PackageReference Include="MessagePack.UnityShims" Version="3.1.4" />
+    <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\realtime_game.Shared\realtime_game.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\Entities\" />
   </ItemGroup>
 
 </Project>

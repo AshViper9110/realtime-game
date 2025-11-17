@@ -1,0 +1,15 @@
+@startuml
+actor ClientA
+participant Server
+actor ClientB
+
+autonumber
+
+ClientA -> Server:退室リクエスト
+Server --> ClientA:退室レスポンス
+Server --> ClientB:ClientA退室通知
+ClientB -> Server:退室リクエスト
+Server --> ClientB:退室レスポンス
+
+
+@enduml

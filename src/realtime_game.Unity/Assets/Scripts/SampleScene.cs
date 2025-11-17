@@ -15,7 +15,7 @@ public class SampleScene : MonoBehaviour
             var client = MagicOnionClient.Create<IMyFirstService>(channel);
 
             var result = await client.SumAsync(100, 200);
-            Debug.Log($"100 + 200 = {result}");
+            Debug.Log($"Log:{result}");
         }
         catch (Exception e)
         {

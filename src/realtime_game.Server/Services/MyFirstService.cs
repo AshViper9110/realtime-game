@@ -8,6 +8,7 @@ namespace realtime_game.Server.Services;
 // The implementation class must inherit `ServiceBase<IMyFirstService>` and `IMyFirstService`
 public class MyFirstService : ServiceBase<IMyFirstService>, IMyFirstService
 {
+
     // `UnaryResult<T>` allows the method to be treated as `async` method.
     public async UnaryResult<int> SumAsync(int x, int y)
     {
