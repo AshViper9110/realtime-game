@@ -2,7 +2,6 @@
 using realtime_game.Server.Models.Contexts;
 using realtime_game.Server.Models.Entities;
 using realtime_game.Shared.Interfaces.StreamingHubs;
-using System.Runtime.InteropServices;
 
 namespace realtime_game.Server.StreamingHubs
 {
@@ -75,16 +74,28 @@ namespace realtime_game.Server.StreamingHubs
             return default;
         }
 
-        // クライアント切断時に呼ばれる（現状は未処理）
-        protected override ValueTask OnDisconnected()
-        {
-            return default;
-        }
-
         // クライアントの接続IDを取得
         public Task<Guid> GetConnectionId()
         {
             return Task.FromResult<Guid>(this.ConnectionId);
+        }
+
+        public Task LeaveAsync(string roomName)
+        {
+            this.roomContext.Group.All.OnLeave(this.ConnectionId);
+            this.roomContext.Group.Remove(this.ConnectionId);
+            this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
+            if (this.roomContext.Group.Count() <= 0) 
+            { 
+                roomContextRepos.RemoveContext(roomName); 
+            }
+            return Task.CompletedTask;
+        }
+
+        // クライアント切断時に呼ばれる（現状は未処理）
+        protected override ValueTask OnDisconnected()
+        {
+            return default;
         }
     }
 }

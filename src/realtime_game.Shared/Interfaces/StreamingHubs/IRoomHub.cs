@@ -9,5 +9,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
     {
         Task<Guid> GetConnectionId();
         Task<JoinedUser[]> JoinAsync(string roomName, int userId);
+
+        Task LeaveAsync(string roomName);
     }
 }

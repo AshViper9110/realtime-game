@@ -1,4 +1,5 @@
 ﻿using realtime_game.Server.StreamingHubs;
+using System;
 
 
 namespace realtime_game.Shared.Interfaces.StreamingHubs
@@ -9,5 +10,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         //[サーバーから呼び出す]
 
         void OnJoin(JoinedUser user);
+
+        void OnLeave(Guid connectionId);
     }
 }
