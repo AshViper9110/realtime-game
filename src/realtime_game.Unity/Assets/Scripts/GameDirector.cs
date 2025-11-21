@@ -1,9 +1,11 @@
+using Cysharp.Threading.Tasks;
 using realtime_game.Server.Models.Entities;
 using realtime_game.Server.StreamingHubs;
 using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameDirector : MonoBehaviour
 {
@@ -15,8 +17,10 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject characterPrefab;
     [SerializeField] TMP_InputField roomName;
     [SerializeField] TMP_InputField userID;
-    [SerializeField] GameObject joinButton;
+    [SerializeField] GameObject bg;
     [SerializeField] GameObject leaveButton;
+    [SerializeField] Transform roomListContent;      // ScrollView Content
+    [SerializeField] GameObject roomButtonPrefab;    // Button Prefab
 
     User myself;
     Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
@@ -24,13 +28,12 @@ public class GameDirector : MonoBehaviour
     async void Start()
     {
         roomModel = GetComponent<RoomModel>();
+        await roomModel.ConnectAsync();
         userModel = GetComponent<UserModel>();
 
-        // イベント購読
+        // Event Registration
         roomModel.OnJoinedUser += this.OnJoinedUser;
         roomModel.OnLeavedUser += this.OnLeaveUser;
-
-        await roomModel.ConnectAsync();
     }
 
     public async void LeaveRoom()
@@ -39,15 +42,104 @@ public class GameDirector : MonoBehaviour
 
         await roomModel.LeaveAsync(room);
 
-        roomName.gameObject.SetActive(true);
-        userID.gameObject.SetActive(true);
-        joinButton.SetActive(true);
+        bg.SetActive(true);
         leaveButton.SetActive(false);
 
         isJoin = false;
     }
 
-    public async void JoinRoom()
+    public async UniTask JoinRoom(string room)
+    {
+        if (!int.TryParse(userID.text, out int uid) || uid <= 0)
+        {
+            Debug.Log("Invalid User ID.");
+            return;
+        }
+
+        try
+        {
+            myself = await userModel.GetUser(uid);
+            Debug.Log($"Myself Loaded: {myself.Name}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogException(e);
+            return;
+        }
+
+        await roomModel.JoinAsync(room, uid);
+
+        bg.SetActive(false);
+        leaveButton.SetActive(true);
+        isJoin = true;
+
+        Debug.Log($"Joined room: {room}");
+    }
+
+    // --- Callback ---
+    private void OnJoinedUser(JoinedUser user)
+    {
+        // Skip self
+        if (user.UserData.Id == myself?.Id) return;
+
+        if (characterList.ContainsKey(user.ConnectionId))
+            return;
+
+        GameObject characterObject = Instantiate(characterPrefab);
+        characterObject.transform.position = Vector3.zero;
+
+        characterList[user.ConnectionId] = characterObject;
+
+        Debug.Log("=== Joined User ===");
+        Debug.Log($"ConnectionId: {user.ConnectionId}");
+        Debug.Log($"UserId: {user.UserData.Id}");
+        Debug.Log($"UserName: {user.UserData.Name}");
+    }
+
+    // --- Callback ---
+    private void OnLeaveUser(JoinedUser user)
+    {
+        if (!characterList.TryGetValue(user.ConnectionId, out GameObject obj)) return;
+        Destroy(obj);
+        characterList.Remove(user.ConnectionId);
+        Debug.Log("=== Leaved User ===");
+        Debug.Log($"ConnectionId: {user.ConnectionId}");
+        Debug.Log($"UserId: {user.UserData.Id}");
+        Debug.Log($"UserName: {user.UserData.Name}");
+    }
+
+    public async void RefreshRoomList()
+    {
+        // Add VerticalLayoutGroup if missing
+        if (roomListContent.GetComponent<VerticalLayoutGroup>() == null)
+        {
+            var layout = roomListContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 10f;
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.childControlWidth = true;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+        }
+
+        // Clear buttons
+        foreach (Transform child in roomListContent)
+            Destroy(child.gameObject);
+
+        // Get room list from server
+        List<string> rooms = await roomModel.GetRoomListAsync();
+        foreach (var room in rooms)
+        {
+            var btnObj = Instantiate(roomButtonPrefab, roomListContent);
+            btnObj.GetComponentInChildren<TMP_Text>().text = room;
+            btnObj.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(async () =>
+            {
+                await JoinRoom(room);
+            });
+        }
+    }
+
+    public async void CreateRoom()
     {
         if (roomName == null || string.IsNullOrEmpty(roomName.text))
         {
@@ -75,45 +167,45 @@ public class GameDirector : MonoBehaviour
         string room = roomName.text;
         await roomModel.JoinAsync(room, uid);
 
-        roomName.gameObject.SetActive(false);
-        userID.gameObject.SetActive(false);
-        joinButton.SetActive(false);
+        bg.SetActive(false);
         leaveButton.SetActive(true);
 
         isJoin = true;
 
-        Debug.Log($"Join room: {room}");
+        Debug.Log($"Create room: {room}");
+    }
+    private async void OnApplicationQuit()
+    {
+        await SafeDisconnect();
     }
 
-    // --- 誰かが入った時 ---
-    private void OnJoinedUser(JoinedUser user)
+    private async void OnDestroy()
     {
-        // 自分はスキップ
-        if (user.UserData.Id == myself?.Id) return;
-
-        if (characterList.ContainsKey(user.ConnectionId))
-            return;
-
-        GameObject characterObject = Instantiate(characterPrefab);
-        characterObject.transform.position = Vector3.zero;
-
-        characterList[user.ConnectionId] = characterObject;
-
-        Debug.Log("=== Joined User ===");
-        Debug.Log($"ConnectionId: {user.ConnectionId}");
-        Debug.Log($"UserId: {user.UserData.Id}");
-        Debug.Log($"UserName: {user.UserData.Name}");
+        await SafeDisconnect();
     }
 
-    // --- 誰かが抜けた時 ---
-    private void OnLeaveUser(JoinedUser user)
+    private async UniTask SafeDisconnect()
     {
-        if (!characterList.TryGetValue(user.ConnectionId, out GameObject obj)) return;
-        Destroy(obj);
-        characterList.Remove(user.ConnectionId);
-        Debug.Log("=== Leaved User ===");
-        Debug.Log($"ConnectionId: {user.ConnectionId}");
-        Debug.Log($"UserId: {user.UserData.Id}");
-        Debug.Log($"UserName: {user.UserData.Name}");
+        if (roomModel == null) return;
+
+        try
+        {
+            if (isJoin)
+            {
+                string room = roomName.text;
+                await roomModel.LeaveAsync(room);
+                Debug.Log("繝ｫ繝ｼ繝縺九ｉ騾蜃ｺ縺励∪縺励◆: " + room);
+            }
+
+            if (roomModel.roomHub != null)
+            {
+                await roomModel.roomHub.DisposeAsync();
+                Debug.Log("Hub繧奪ispose縺励∪縺励◆");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"蛻�譁ｭ荳ｭ縺ｫ繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: {e.Message}");
+        }
     }
 }

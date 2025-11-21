@@ -8,242 +8,190 @@ using UnityEditor;
 
 public class SplinePrefabPlacerTool : MonoBehaviour
 {
+    public enum PlacementMode
+    {
+        EvenSpacing,    // 等間隔配置 (Spacing指定)
+        ConnectObjects  // オブジェクトを繋げる (Prefabの長さ基準)
+    }
+
     [Header("Spline Settings")]
     public SplineContainer splineContainer;
 
     [Header("Prefab Settings")]
     public GameObject prefab;
-
-    [Header("Placement Method")]
-    [Tooltip("配置方法の選択")]
     public PlacementMode placementMode = PlacementMode.EvenSpacing;
 
-    [Header("Even Spacing Settings")]
-    [Tooltip("Prefab間の間隔")]
-    [Range(0.1f, 50f)]
-    public float spacing = 5f;
+    [Header("Placement Settings")]
+    public float spacing = 5f;          // EvenSpacing用
+    public bool autoDetectLength = true;// ConnectObjects用: Prefabの長さを自動検出
+    public float manualPrefabLength = 5f; // 手動指定の場合
 
-    [Header("Connection Settings")]
-    [Tooltip("Prefabの長さを自動検出")]
-    public bool autoDetectLength = true;
-
-    [Tooltip("Prefabの長さ（手動設定）")]
-    [Range(0.1f, 50f)]
-    public float manualPrefabLength = 5f;
-
-    [Tooltip("接続のオーバーラップ量")]
-    [Range(-2f, 2f)]
-    public float connectionOverlap = 0.1f;
-
-    [Header("Transform Settings")]
-    [Tooltip("Prefabのピボット位置（0=後端, 0.5=中央, 1=前端）")]
-    [Range(0f, 1f)]
-    public float pivotPosition = 0.5f;
-
-    public Vector3 positionOffset = Vector3.zero;
+    [Header("Alignment Settings")]
+    public bool alignToSpline = true;   // スプラインの向きに合わせる
+    public bool alignUpVector = true;   // UpVectorも合わせる
     public Vector3 rotationOffset = Vector3.zero;
-    public Vector3 scale = Vector3.one;
+    public Vector3 positionOffset = Vector3.zero;
 
-    [Header("Alignment")]
-    public bool alignToSpline = true;
-    public bool alignUpVector = true;
+    [Header("Pivot Adjustment (0.0 - 1.0)")]
+    [Range(0f, 1f)] public float pivotPosition = 0.5f; // 0=後端, 0.5=中心, 1=前端
 
-    [Header("Adaptive Placement")]
-    [Tooltip("カーブで配置を調整")]
-    public bool adaptivePlacement = false;
-
-    [Tooltip("カーブでの縮小率")]
-    [Range(0.3f, 1f)]
-    public float curveScaleMin = 0.7f;
-
-    [Tooltip("カーブ検出感度")]
-    [Range(1f, 45f)]
-    public float curveSensitivity = 15f;
-
-    [Header("Collision Prevention")]
-    [Tooltip("重なりを防止")]
-    public bool preventOverlap = true;
-
-    [Tooltip("最小配置間隔")]
-    [Range(0.1f, 10f)]
-    public float minimumDistance = 1f;
-
-    [Tooltip("角度差チェック")]
-    public bool checkAngleDifference = false;
-
-    [Tooltip("最大角度差")]
-    [Range(5f, 90f)]
-    public float maxAngleDifference = 30f;
-
-    [Header("Preview")]
+    [Header("Debug / Preview")]
     public bool showPreview = true;
-    public bool showConnections = true;
-    public bool showDebugInfo = false;
-    public Color previewColor = Color.green;
+    public Color previewColor = Color.yellow;
+    public bool showConnections = true; // 連結モード時の接続確認
 
-    private List<PlacementInfo> placements = new List<PlacementInfo>();
-
-    public enum PlacementMode
-    {
-        EvenSpacing,      // 等間隔配置
-        Connected         // 接続配置（隙間なし）
-    }
-
-    private struct PlacementInfo
+    // 内部計算用
+    private struct Placement
     {
         public Vector3 position;
         public Quaternion rotation;
         public Vector3 scale;
-        public float distanceOnSpline;
         public bool isValid;
+    }
+
+    private List<Placement> placements = new List<Placement>();
+
+    private void OnValidate()
+    {
+        // インスペクター変更時に再計算
+        if (showPreview) CalculatePlacements();
     }
 
     [ContextMenu("Place Prefabs")]
     public void PlacePrefabs()
     {
-        if (!Validate()) return;
+        if (splineContainer == null || prefab == null)
+        {
+            Debug.LogError("SplineContainer または Prefab が設定されていません。");
+            return;
+        }
 
-        ClearChildren();
         CalculatePlacements();
 
-        int count = 0;
-        foreach (var placement in placements)
-        {
-            if (!placement.isValid) continue;
+        // 既存の子オブジェクトを削除（オプション）
+        ClearChildren();
 
-            GameObject instance = Instantiate(prefab, placement.position, placement.rotation, transform);
-            instance.transform.localScale = placement.scale;
-            instance.name = $"{prefab.name}_{count:D3}";
-            count++;
+        // 配置実行
+        foreach (var p in placements)
+        {
+            if (!p.isValid) continue;
+
+            GameObject obj;
+#if UNITY_EDITOR
+            if (Application.isPlaying)
+                obj = Instantiate(prefab, transform);
+            else
+                obj = (GameObject)PrefabUtility.InstantiatePrefab(prefab, transform);
+#else
+            obj = Instantiate(prefab, transform);
+#endif
+            obj.transform.position = p.position;
+            obj.transform.rotation = p.rotation;
+            obj.transform.localScale = p.scale;
         }
 
-        Debug.Log($"✓ {count}個のPrefabを配置しました");
-    }
-
-    private bool Validate()
-    {
-        if (splineContainer == null)
-        {
-            Debug.LogError("❌ SplineContainerが設定されていません");
-            return false;
-        }
-
-        if (prefab == null)
-        {
-            Debug.LogError("❌ Prefabが設定されていません");
-            return false;
-        }
-
-        return true;
+        Debug.Log($"配置完了: {placements.Count} 個のオブジェクトを生成しました。");
     }
 
     private void CalculatePlacements()
     {
         placements.Clear();
 
-        Spline spline = splineContainer.Spline;
-        float splineLength = spline.GetLength();
+        if (splineContainer == null) return;
 
-        if (splineLength <= 0) return;
-
-        float prefabLength = autoDetectLength ? GetPrefabLength() : manualPrefabLength;
-        float actualSpacing = placementMode == PlacementMode.Connected
-            ? prefabLength - connectionOverlap
-            : spacing;
-
-        float currentDistance = 0f;
-        PlacementInfo lastPlacement = default;
-        bool hasLast = false;
-
-        while (currentDistance <= splineLength)
+        foreach (var spline in splineContainer.Splines)
         {
-            float t = Mathf.Clamp01(currentDistance / splineLength);
-
-            // カーブ計算
-            float curveAngle = CalculateCurveAngle(spline, t, prefabLength / splineLength);
-
-            // スケール計算
-            Vector3 currentScale = scale;
-            if (adaptivePlacement && curveAngle > curveSensitivity)
-            {
-                float curveRatio = Mathf.Clamp01((curveAngle - curveSensitivity) / 30f);
-                float scaleZ = Mathf.Lerp(1f, curveScaleMin, curveRatio);
-                currentScale.z *= scaleZ;
-            }
-
-            // 位置と回転
-            Vector3 position = CalculatePosition(spline, currentDistance, prefabLength);
-            Quaternion rotation = CalculateRotation(spline, t);
-
-            // 妥当性チェック
-            bool isValid = true;
-
-            if (hasLast && preventOverlap)
-            {
-                float dist = Vector3.Distance(position, lastPlacement.position);
-                if (dist < minimumDistance)
-                {
-                    isValid = false;
-                }
-            }
-
-            if (hasLast && checkAngleDifference && isValid)
-            {
-                float angleDiff = Quaternion.Angle(rotation, lastPlacement.rotation);
-                if (angleDiff > maxAngleDifference)
-                {
-                    isValid = false;
-                    if (showDebugInfo)
-                    {
-                        Debug.LogWarning($"⚠ 角度差: {angleDiff:F1}° at {currentDistance:F2}m");
-                    }
-                }
-            }
-
-            var placement = new PlacementInfo
-            {
-                position = position,
-                rotation = rotation,
-                scale = currentScale,
-                distanceOnSpline = currentDistance,
-                isValid = isValid
-            };
-
-            placements.Add(placement);
-
-            if (isValid)
-            {
-                lastPlacement = placement;
-                hasLast = true;
-            }
-
-            // 次の位置
-            float nextSpacing = actualSpacing;
-            if (adaptivePlacement && curveAngle > curveSensitivity)
-            {
-                nextSpacing *= currentScale.z;
-            }
-
-            currentDistance += nextSpacing;
-
-            // 安全装置
-            if (placements.Count > 10000)
-            {
-                Debug.LogError("❌ 配置数が多すぎます");
-                break;
-            }
-        }
-
-        if (showDebugInfo)
-        {
-            int validCount = 0;
-            foreach (var p in placements)
-            {
-                if (p.isValid) validCount++;
-            }
-            Debug.Log($"📊 有効な配置: {validCount}/{placements.Count}");
+            CalculateSplinePlacement(spline);
         }
     }
+
+    private void CalculateSplinePlacement(Spline spline)
+    {
+        float splineLength = spline.GetLength();
+        if (splineLength <= 0.001f) return;
+
+        float currentDistance = 0f;
+
+        // モード別計算
+        if (placementMode == PlacementMode.EvenSpacing)
+        {
+            // --- 等間隔モード ---
+            if (spacing <= 0.001f) spacing = 1f;
+
+            while (currentDistance <= splineLength)
+            {
+                Vector3 pos = CalculatePosition(spline, currentDistance, 0f);
+                Quaternion rot = CalculateRotation(spline, currentDistance / splineLength);
+
+                placements.Add(new Placement
+                {
+                    position = pos,
+                    rotation = rot,
+                    scale = Vector3.one,
+                    isValid = true
+                });
+
+                currentDistance += spacing;
+            }
+        }
+        else
+        {
+            // --- 連結モード ---
+            float length = autoDetectLength ? GetPrefabLength() : manualPrefabLength;
+            if (length <= 0.001f) length = 1f;
+
+            // 最初のオフセット（ピボット考慮）
+            currentDistance = length * pivotPosition;
+
+            while (currentDistance <= splineLength)
+            {
+                // 現在位置の計算
+                float t = currentDistance / splineLength;
+                Vector3 pos = CalculatePosition(spline, currentDistance, length);
+                Quaternion rot = CalculateRotation(spline, t);
+
+                // カーブによる隙間補正（簡易版）
+                // カーブがきつい場合、少し詰めるなどの処理を入れる余地あり
+                // ここでは単純配置
+
+                placements.Add(new Placement
+                {
+                    position = pos,
+                    rotation = rot,
+                    scale = Vector3.one,
+                    isValid = true
+                });
+
+                // 次の位置へ
+                float nextSpacing = length;
+                
+                // オプション：カーブに応じて間隔を微調整するならここで計算
+                // float curveAngle = CalculateCurveAngle(spline, t, 0.05f);
+                // if (curveAngle > 10f) nextSpacing *= 0.95f; // 例
+
+                currentDistance += nextSpacing;
+
+                // 安全弁
+                if (placements.Count > 10000)
+                {
+                    Debug.LogError("∞ 配置ループ検出");
+                    break;
+                }
+            }
+
+            if (showDebugInfo)
+            {
+                int validCount = 0;
+                foreach (var p in placements)
+                {
+                    if (p.isValid) validCount++;
+                }
+                Debug.Log($"✓ 有効な配置: {validCount}/{placements.Count}");
+            }
+        }
+    }
+
+    private bool showDebugInfo = false;
 
     private Vector3 CalculatePosition(Spline spline, float distance, float prefabLength)
     {
@@ -329,7 +277,7 @@ public class SplinePrefabPlacerTool : MonoBehaviour
         Bounds bounds = new Bounds();
         bool hasBounds = false;
 
-        // Rendererから
+        // Renderer検索
         Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>();
         foreach (var r in renderers)
         {
@@ -344,7 +292,7 @@ public class SplinePrefabPlacerTool : MonoBehaviour
             }
         }
 
-        // Colliderから
+        // Collider検索
         Collider[] colliders = prefab.GetComponentsInChildren<Collider>();
         foreach (var c in colliders)
         {
@@ -361,7 +309,7 @@ public class SplinePrefabPlacerTool : MonoBehaviour
 
         if (!hasBounds) return 5f;
 
-        // Z軸の長さを返す
+        // Zの長さを返す
         return Mathf.Max(bounds.size.z, 1f);
     }
 
@@ -393,7 +341,7 @@ public class SplinePrefabPlacerTool : MonoBehaviour
         {
             var p = placements[i];
 
-            // 無効な配置は赤で表示
+            // 無効配置は赤で表示
             if (!p.isValid)
             {
                 Gizmos.color = Color.red;
@@ -425,7 +373,7 @@ public class SplinePrefabPlacerTool : MonoBehaviour
                 Gizmos.DrawWireSphere(start, 0.15f);
                 Gizmos.DrawWireSphere(end, 0.15f);
 
-                // 次との接続線
+                // 次との接続
                 if (i < placements.Count - 1)
                 {
                     var next = placements[i + 1];
@@ -468,16 +416,16 @@ public class SplinePrefabPlacerToolEditor : Editor
         if (tool.placementMode == SplinePrefabPlacerTool.PlacementMode.EvenSpacing)
         {
             EditorGUILayout.HelpBox(
-                "📏 等間隔配置モード\n" +
+                "ℹ 等間隔配置モード\n" +
                 "Spacingで間隔を指定します",
                 MessageType.Info);
         }
         else
         {
             EditorGUILayout.HelpBox(
-                "🔗 接続配置モード\n" +
-                "Prefabを隙間なく繋げます\n" +
-                "Connection Overlapで微調整",
+                "ℹ 連結配置モード\n" +
+                "Prefabを繋なるように配置します\n" +
+                "Connection Overlapで調整",
                 MessageType.Info);
         }
 

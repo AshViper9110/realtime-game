@@ -1,8 +1,5 @@
 ﻿using Cysharp.Runtime.Multicast;
 using System.Collections.Concurrent;
-using MagicOnion.Server.Hubs;
-using realtime_game.Server.Models.Contexts;
-using realtime_game.Shared.Interfaces.StreamingHubs;
 using System.Xml.Linq;
 
 
@@ -29,6 +26,12 @@ namespace realtime_game.Server.StreamingHubs
         public void RemoveContext(string roomName)
         {
             if (contexts.Remove(roomName, out var RoomContext)) RoomContext?.Dispose();
+        }
+
+        public IEnumerable<string> GetAllRoomNames()
+        {
+            // 現在保持している全ルーム名を返す
+            return contexts.Keys;
         }
     }
 }

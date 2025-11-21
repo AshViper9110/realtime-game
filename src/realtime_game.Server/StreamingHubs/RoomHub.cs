@@ -8,94 +8,136 @@ namespace realtime_game.Server.StreamingHubs
     public class RoomHub(RoomContextRepository roomContextRepository) :
         StreamingHubBase<IRoomHub, IRoomHubReceiver>, IRoomHub
     {
-        // クラスの一部として定義されているフィールド
-        private RoomContextRepository roomContextRepos; // ルーム全体を管理するリポジトリ（部屋ごとの状態を保持）
-        private RoomContext roomContext;                // 現在接続している部屋の情報（ルーム単位の状態）
+        private RoomContextRepository roomContextRepos;
+        private RoomContext roomContext;
 
-        // ユーザーがルームに参加する際に呼ばれる非同期メソッド
         public async Task<JoinedUser[]> JoinAsync(string roomName, int userId)
         {
-            // --- 1. ルームコンテキストの取得・作成 ---
-            // 複数スレッドからアクセスされる可能性があるため lock で排他制御
+            Console.WriteLine("--------------------------------------------------");
+            Console.WriteLine($"[JOIN REQUEST] roomName={roomName}, userId={userId}, connId={this.ConnectionId}");
+
+            // --- 1. ルームコンテキスト取得 / 作成 ---
             lock (roomContextRepos)
             {
-                // 既存のルームを取得
+                Console.WriteLine("[ROOM] Checking room context...");
+
                 this.roomContext = roomContextRepos.getContext(roomName);
 
-                // ルームが存在しない場合は新規作成
                 if (this.roomContext == null)
                 {
-                    Console.WriteLine($"[ROOM] Create Room: {roomName}");
+                    Console.WriteLine($"[ROOM] Room not found. Creating new room: {roomName}");
                     this.roomContext = roomContextRepos.CreateContext(roomName);
+                }
+                else
+                {
+                    Console.WriteLine($"[ROOM] Found existing room: {roomName}");
                 }
             }
 
-            // --- 2. クライアントをルーム内のグループに追加 ---
+            // --- 2. グループ追加 ---
+            Console.WriteLine($"[GROUP] Adding connection {this.ConnectionId} to room group...");
             this.roomContext.Group.Add(this.ConnectionId, Client);
 
-            // --- 3. データベースからユーザー情報を取得 ---
+            // --- 3. DB からユーザー取得 ---
+            Console.WriteLine($"[DB] Fetching user data from DB: userId={userId}");
             GameDbContext context = new GameDbContext();
-            User user = context.Users.FirstOrDefault(user => user.Id == userId);
+            User user = context.Users.FirstOrDefault(u => u.Id == userId);
+
             if (user == null)
             {
-                Console.WriteLine($"[ERROR] User not found: userId={userId}");
+                Console.WriteLine($"[ERROR] User not found in database. userId={userId}");
                 return Array.Empty<JoinedUser>();
             }
 
-            // --- 4. JoinedUser オブジェクトを生成 ---
+            Console.WriteLine($"[DB] User found: {user.Name} (ID={user.Id})");
+
+            // --- 4. JoinedUser 生成 ---
             var joinedUser = new JoinedUser
             {
                 ConnectionId = this.ConnectionId,
                 UserData = user
             };
 
-            // --- 5. ルーム内ユーザーデータを作成し登録 ---
+            // --- 5. ルームにユーザーデータ登録 ---
+            Console.WriteLine($"[ROOM] Registering user to room data list...");
             var roomUserData = new RoomUserData() { JoinedUser = joinedUser };
-            this.roomContext.RoomUserDataList[ConnectionId] = roomUserData;
+            this.roomContext.RoomUserDataList[this.ConnectionId] = roomUserData;
 
-            // --- 6. 他の参加者に「誰かが参加した」ことを通知 ---
+            // --- 6. 他参加者へ通知 ---
+            Console.WriteLine($"[NOTIFY] Broadcasting join event to others in room...");
             this.roomContext.Group.Except([this.ConnectionId]).OnJoin(joinedUser);
 
-            // --- 🔍 ログ出力：参加者情報を表示 ---
-            Console.WriteLine($"[JOIN] User '{user.Name}' (ID={user.Id}) joined room '{roomName}'.");
-            Console.WriteLine($"[ROOM STATUS] {roomName}: {this.roomContext.RoomUserDataList.Count} users now connected.");
+            // --- 7. 状態ログ ---
+            int count = this.roomContext.RoomUserDataList.Count;
+            Console.WriteLine($"[ROOM STATUS] Room '{roomName}' now has {count} users.");
+            Console.WriteLine($"[JOIN COMPLETE] {user.Name} joined room '{roomName}'.");
+            Console.WriteLine("--------------------------------------------------");
 
-            // --- 7. 現在のルーム内の全参加者リストを返す ---
             return this.roomContext.RoomUserDataList
                 .Select(f => f.Value.JoinedUser)
                 .ToArray();
         }
 
-        // クライアント接続時に呼ばれる
         protected override ValueTask OnConnected()
         {
-            // グローバルリポジトリをフィールドにセット
             roomContextRepos = roomContextRepository;
+            Console.WriteLine($"[CONNECTED] New client connected. ConnectionId={this.ConnectionId}");
             return default;
         }
 
-        // クライアントの接続IDを取得
         public Task<Guid> GetConnectionId()
         {
+            Console.WriteLine($"[GET CONNECTION ID] {this.ConnectionId}");
             return Task.FromResult<Guid>(this.ConnectionId);
         }
 
         public Task LeaveAsync(string roomName)
         {
-            this.roomContext.Group.All.OnLeave(this.ConnectionId);
-            this.roomContext.Group.Remove(this.ConnectionId);
-            this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
-            if (this.roomContext.Group.Count() <= 0) 
-            { 
-                roomContextRepos.RemoveContext(roomName); 
+            Console.WriteLine("--------------------------------------------------");
+            Console.WriteLine($"[LEAVE REQUEST] roomName={roomName}, connId={this.ConnectionId}");
+
+            if (roomContext == null)
+            {
+                Console.WriteLine("[WARNING] LeaveAsync called but roomContext is null.");
+                return Task.CompletedTask;
             }
+
+            Console.WriteLine("[NOTIFY] Broadcasting leave to all...");
+            this.roomContext.Group.All.OnLeave(this.ConnectionId);
+
+            Console.WriteLine("[GROUP] Removing from room group...");
+            this.roomContext.Group.Remove(this.ConnectionId);
+
+            Console.WriteLine("[ROOM] Removing user data...");
+            this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
+
+            int count = this.roomContext.Group.Count();
+            Console.WriteLine($"[ROOM STATUS] After leaving, {count} users in room.");
+
+            if (count <= 0)
+            {
+                Console.WriteLine($"[ROOM DELETE] No users left. Removing room '{roomName}'...");
+                roomContextRepos.RemoveContext(roomName);
+            }
+
+            Console.WriteLine("[LEAVE COMPLETE]");
+            Console.WriteLine("--------------------------------------------------");
+
             return Task.CompletedTask;
         }
 
-        // クライアント切断時に呼ばれる（現状は未処理）
         protected override ValueTask OnDisconnected()
         {
+            Console.WriteLine($"[DISCONNECTED] connId={this.ConnectionId}");
             return default;
+        }
+        public Task<List<string>> GetRoomListAsync()
+        {
+            lock (roomContextRepos)
+            {
+                // roomContextRepos にある全ルーム名を取得
+                return Task.FromResult(roomContextRepos.GetAllRoomNames().ToList());
+            }
         }
     }
 }

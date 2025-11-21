@@ -1,5 +1,4 @@
 using Cysharp.Threading.Tasks;
-using Grpc.Net.Client;
 using MagicOnion;
 using MagicOnion.Client;
 using realtime_game.Server.StreamingHubs;
@@ -18,14 +17,18 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<JoinedUser> OnJoinedUser { get; set; }
     public Action<JoinedUser> OnLeavedUser { get; set; }
 
-    // Ú‘±’†ƒ†[ƒU[‚ğ•ÛiOnLeave ‚Ì‚Æ‚«‚½‚ß‚É•K—vj
+    // æ¥ç¶šãƒ¦ãƒ¼ã‚¶ãƒ¼ä¿æŒï¼ˆOnLeave ã®ãŸã‚ã«å¿…è¦ï¼‰
     private readonly Dictionary<Guid, JoinedUser> userTable = new();
 
     public async UniTask ConnectAsync()
     {
+        Debug.Log("Connecting to server...");
+
         channel = GrpcChannelx.ForAddress(ServerURL);
         roomHub = await StreamingHubClient.ConnectAsync<IRoomHub, IRoomHubReceiver>(channel, this);
         this.ConnectionId = await roomHub.GetConnectionId();
+
+        Debug.Log($"Connected! CID={this.ConnectionId}");
     }
 
     public async UniTask DisconnectAsync()
@@ -38,47 +41,57 @@ public class RoomModel : BaseModel, IRoomHubReceiver
 
     async void OnDestroy() { DisconnectAsync(); }
 
-    // --- “üº ---
+    // --- å‚åŠ  ---
     public async UniTask JoinAsync(string roomName, int userId)
     {
         JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
 
         foreach (var user in users)
         {
-            userTable[user.ConnectionId] = user; // ©•Û
+            userTable[user.ConnectionId] = user; // ä¿æŒ
 
             OnJoinedUser?.Invoke(user);        }
     }
 
-    // --- ‘Şº ---
+    // --- é€€å‡º ---
     public async UniTask LeaveAsync(string roomName)
     {
         await roomHub.LeaveAsync(roomName);
-        roomHub = null;
     }
 
-    // --- ƒT[ƒo‚©‚çu’N‚©‚ª”²‚¯‚½v’Ê’m ---
+    // --- ã‚µãƒ¼ãƒãƒ¼ã‹ã‚‰ã®é€šçŸ¥ ---
     public void OnLeave(Guid connectionId)
     {
         Debug.Log($"=== User Leaved === {connectionId}");
 
         if (userTable.TryGetValue(connectionId, out var user))
         {
-            // Unity‘¤‚Ö’Ê’m
+            // Unityã¸é€šçŸ¥
             OnLeavedUser?.Invoke(user);
 
-            // ƒe[ƒuƒ‹‚©‚çíœ
+            // ãƒ†ãƒ¼ãƒ–ãƒ«å‰Šé™¤
             userTable.Remove(connectionId);
         }
     }
 
-    // --- ƒT[ƒo‚©‚ç‚Ì“üº’Ê’m ---
+    // --- ã‚µãƒ¼ãƒãƒ¼ã‹ã‚‰ã®é€šçŸ¥ ---
     public void OnJoin(JoinedUser user)
     {
         Debug.Log($"=== User Joined === {user.ConnectionId} / {user.UserData.Name}");
 
-        userTable[user.ConnectionId] = user; // ©•Û
+        userTable[user.ConnectionId] = user; // ä¿æŒ
 
         OnJoinedUser?.Invoke(user);
+    }
+
+    public async UniTask<List<string>> GetRoomListAsync()
+    {
+        if (roomHub == null)
+        {
+            Debug.LogWarning("Not connected to server yet!");
+            return new List<string>();
+        }
+
+        return await roomHub.GetRoomListAsync();
     }
 }

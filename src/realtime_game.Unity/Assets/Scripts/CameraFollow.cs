@@ -5,15 +5,15 @@ public class CameraFollow : MonoBehaviour
     public Transform target;
     public float distance = 10f;
     public float height = 4f;
-    public float extraHeight = 0f;   // ƒJƒƒ‰ˆÊ’u‚Ì’Ç‰ÁƒIƒtƒZƒbƒg
-    public float lookUpOffset = 2f;  // šuŒ©‚éˆÊ’uv‚ðã‚°‚é—Ê
+    public float extraHeight = 0f;   // ã‚«ãƒ¡ãƒ©ä½ç½®ã®è¿½åŠ ã‚ªãƒ•ã‚»ãƒƒãƒˆ
+    public float lookUpOffset = 2f;  // è¦‹ä¸Šã’ã‚ªãƒ•ã‚»ãƒƒãƒˆ
     public float smooth = 5f;
 
     void LateUpdate()
     {
         if (!target) return;
 
-        // ƒJƒƒ‰‚ÌˆÊ’u
+        // ã‚«ãƒ¡ãƒ©ã®ä½ç½®
         Vector3 behindPos =
             target.position
             - target.forward * distance
@@ -25,13 +25,13 @@ public class CameraFollow : MonoBehaviour
             Time.deltaTime * smooth
         );
 
-        // ----- ƒ^[ƒQƒbƒg‚Ìu­‚µãv‚ðŒ©‚é -----
+        // ----- ã‚¿ãƒ¼ã‚²ãƒƒãƒˆã‚’è¦‹ã‚‹ -----
         Vector3 lookTarget =
             target.position + Vector3.up * lookUpOffset;
 
         Quaternion look = Quaternion.LookRotation(lookTarget - transform.position);
 
-        // Roll ‚ÍŒÅ’è‚µ‚ÄŒ‚¢‚É‚­‚­‚·‚é
+        // Rollã¯å›ºå®šã—ã¦æ°´å¹³ã«ã™ã‚‹
         Quaternion level = Quaternion.Euler(look.eulerAngles.x, look.eulerAngles.y, 0);
 
         transform.rotation = Quaternion.Lerp(

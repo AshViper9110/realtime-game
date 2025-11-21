@@ -1,6 +1,7 @@
 ﻿using MagicOnion;
 using realtime_game.Server.StreamingHubs;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace realtime_game.Shared.Interfaces.StreamingHubs
@@ -11,5 +12,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         Task<JoinedUser[]> JoinAsync(string roomName, int userId);
 
         Task LeaveAsync(string roomName);
+
+        Task<List<string>> GetRoomListAsync();
     }
 }
