@@ -79,7 +79,7 @@ StyleCopReport.xml
 *_p.c
 *_h.h
 *.ilk
-*.meta
+# *.meta
 *.obj
 *.iobj
 *.pch
@@ -486,3 +486,25 @@ $RECYCLE.BIN/
 # realtime_game.Admin\mysql
 src/realtime_game.Admin/mysql
 src/realtime_game.Admin/phpmyadmin
+
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Bb]uild/
+/[Bb]uilds/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+!/[Aa]ssets/**/*.meta
+*.unitypackage
+*.apk
+*.aab
+sysinfo.txt
+crashlytics-build.properties
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
