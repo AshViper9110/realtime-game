@@ -1,0 +1,55 @@
+#######################################################################
+# Apache(PHP) + MySQL + phpmymdmin コンテナ構成ファイル
+# [コンテナ起動]
+#   > docker-compose up -d
+#   ※http://localhost/ で apache
+#     http://localhost:8080/ で phpmyadmin
+# [コンテナ停止]
+#   > docker-compose down
+# [イメージ削除]
+#   > docker-compose down --rmi all
+# [イメージビルド]
+#   > docker-compose build
+#
+# - [docker-compose.yml] を変更した場合は downして再度up が必要
+# - [Dockerfile] を変更した場合は build が必要
+#######################################################################
+#version: '3'
+
+services:
+  # Webサーバーコンテナ
+  php:
+    build: ./app  # Dockerfileでビルド
+    volumes:
+      - ./app/php.ini:/usr/local/etc/php/php.ini  # PHP設定
+      - ./app/html:/var/www/html                  # html格納先
+    ports:
+      - "80:80"  # ホスト側ポート番号:コンテナ内ポート番号
+
+  # DBサーバーコンテナ
+  mysql:
+    image: mysql:8.0  # DockerHubイメージ名を指定
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - ./mysql:/var/lib/mysql   # データベースのファイルをホスト(Windows)に保存(データ消えないようにするため)
+      - ./db/my.cnf:/etc/my.cnf  # MySQL設定
+    ports:
+      - "3306:3306" # ホスト側ポート番号:コンテナ内ポート番号
+    environment: # 環境変数
+      - MYSQL_ROOT_PASSWORD=root  # rootパスワード
+      - MYSQL_DATABASE=realtime_game   # 使用するデータベース名
+      - MYSQL_USER=jobi           # 使用するroot以外のユーザー名
+      - MYSQL_PASSWORD=jobi       # 使用するroot以外のユーザーパスワード
+      - TZ=Asia/Tokyo
+
+  # DBサーバー管理ツールコンテナ
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin  # DockerHubイメージ名を指定
+    environment: # 環境変数
+      - PMA_HOST=mysql     # 接続ホスト名
+      - PMA_USER=root      # 接続ユーザー名
+      - PMA_PASSWORD=root  # 接続ユーザーパスワード
+    ports:
+      - "8080:80"  # ホスト側ポート番号:コンテナ内ポート番号
+    volumes:
+      - ./phpmyadmin/sessions:/sessions  # セッション情報の保存先

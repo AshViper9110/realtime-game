@@ -1,0 +1,20 @@
+@startuml
+actor ClientA
+participant Server
+actor ClientB
+actor ClientC
+
+autonumber
+
+ClientA -> Server:参加リクエスト
+Server --> ClientA:参加レスポンス
+ClientB -> Server:参加リクエスト
+Server --> ClientB:参加レスポンス
+Server --> ClientA:ClientB参加通知
+
+ClientC -> Server:参加リクエスト
+Server --> ClientC:参加レスポンス
+Server --> ClientA:ClientC参加通知
+Server --> ClientB:ClientC参加通知
+
+@enduml

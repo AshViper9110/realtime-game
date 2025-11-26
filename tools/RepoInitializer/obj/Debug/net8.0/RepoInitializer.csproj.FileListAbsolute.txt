@@ -1,0 +1,15 @@
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\bin\Debug\net8.0\RepoInitializer.exe
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\bin\Debug\net8.0\RepoInitializer.deps.json
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\bin\Debug\net8.0\RepoInitializer.runtimeconfig.json
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\bin\Debug\net8.0\RepoInitializer.dll
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\bin\Debug\net8.0\RepoInitializer.pdb
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.AssemblyInfoInputs.cache
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.AssemblyInfo.cs
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.csproj.CoreCompileInputs.cache
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.sourcelink.json
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.dll
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\refint\RepoInitializer.dll
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.pdb
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\RepoInitializer.genruntimeconfig.cache
+C:\Users\student\Documents\Git\realtime-game\tools\RepoInitializer\obj\Debug\net8.0\ref\RepoInitializer.dll

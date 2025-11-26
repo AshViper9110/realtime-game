@@ -1,0 +1,13 @@
+@startuml
+actor ClientA
+participant Server
+actor ClientB
+
+autonumber
+
+ClientA -> Server:Move(A,pos)
+ClientB -> Server:Move(B,pos)
+Server-> ClientB:OnMove(A,pos)
+Server-> ClientA:OnMove(B,pos)
+
+@enduml
