@@ -1,4 +1,7 @@
-﻿using MagicOnion.Server.Hubs;
+﻿using Cysharp.Runtime.Multicast;
+using MagicOnion;
+using MagicOnion.Server.Hubs;
+using Microsoft.EntityFrameworkCore;
 using realtime_game.Server.Models.Contexts;
 using realtime_game.Server.Models.Entities;
 using realtime_game.Shared.Interfaces.StreamingHubs;
@@ -11,12 +14,14 @@ namespace realtime_game.Server.StreamingHubs
     {
         private RoomContextRepository roomContextRepos;
         private RoomContext roomContext;
+        private string roomNamed;
+
 
         public async Task<JoinedUser[]> JoinAsync(string roomName, int userId)
         {
             Console.WriteLine("--------------------------------------------------");
             Console.WriteLine($"[JOIN REQUEST] roomName={roomName}, userId={userId}, connId={this.ConnectionId}");
-
+            roomNamed = roomName; 
             // --- 1. ルームコンテキスト取得 / 作成 ---
             lock (roomContextRepos)
             {
@@ -28,6 +33,7 @@ namespace realtime_game.Server.StreamingHubs
                 {
                     Console.WriteLine($"[ROOM] Room not found. Creating new room: {roomName}");
                     this.roomContext = roomContextRepos.CreateContext(roomName);
+                    this.roomContext.OwnerConnectionId = this.ConnectionId; // 作成者
                 }
                 else
                 {
@@ -56,7 +62,8 @@ namespace realtime_game.Server.StreamingHubs
             var joinedUser = new JoinedUser
             {
                 ConnectionId = this.ConnectionId,
-                UserData = user
+                UserData = user,
+                IsOwner = this.ConnectionId == this.roomContext.OwnerConnectionId
             };
 
             // --- 5. ルームにユーザーデータ登録 ---
@@ -97,44 +104,28 @@ namespace realtime_game.Server.StreamingHubs
             return Task.FromResult<Guid>(this.ConnectionId);
         }
 
-        public Task LeaveAsync(string roomName)
+        public Task LeaveAsync()
         {
-            Console.WriteLine("--------------------------------------------------");
-            Console.WriteLine($"[LEAVE REQUEST] roomName={roomName}, connId={this.ConnectionId}");
-
-            if (roomContext == null)
-            {
-                Console.WriteLine("[WARNING] LeaveAsync called but roomContext is null.");
-                return Task.CompletedTask;
-            }
-
-            Console.WriteLine("[NOTIFY] Broadcasting leave to all...");
+            //　退室したことを全メンバーに通知
             this.roomContext.Group.All.OnLeave(this.ConnectionId);
 
-            Console.WriteLine("[GROUP] Removing from room group...");
+            //　ルーム内のメンバーから自分を削除
             this.roomContext.Group.Remove(this.ConnectionId);
 
-            Console.WriteLine("[ROOM] Removing user data...");
+            //　ルームデータから退室したユーザーを削除
             this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
-
-            int count = this.roomContext.Group.Count();
-            Console.WriteLine($"[ROOM STATUS] After leaving, {count} users in room.");
-
-            if (count <= 0)
+            if (this.roomContext.RoomUserDataList.Count <= 0)
             {
-                Console.WriteLine($"[ROOM DELETE] No users left. Removing room '{roomName}'...");
-                roomContextRepos.RemoveContext(roomName);
+                roomContextRepos.RemoveContext(roomNamed);
             }
-
-            Console.WriteLine("[LEAVE COMPLETE]");
-            Console.WriteLine("--------------------------------------------------");
-
             return Task.CompletedTask;
         }
+
 
         protected override ValueTask OnDisconnected()
         {
             Console.WriteLine($"[DISCONNECTED] connId={this.ConnectionId}");
+            LeaveAsync();
             return CompletedTask;
         }
         public Task<List<string>> GetRoomListAsync()
@@ -148,9 +139,48 @@ namespace realtime_game.Server.StreamingHubs
 
         public Task MoveAsync(Vector3 pos, Quaternion rot)
         {
+            // 位置と回転を更新
             this.roomContext.RoomUserDataList[this.ConnectionId].pos = pos;
             this.roomContext.RoomUserDataList[this.ConnectionId].rot = rot;
-            this.roomContext.Group.Except([this.ConnectionId]).OnMove(this.ConnectionId, pos, rot);
+
+            // 他のクライアントに通知
+            this.roomContext.Group
+                .Except(this.ConnectionId)
+                .OnMove(this.ConnectionId, pos, rot);
+
+            return Task.CompletedTask;
+        }
+
+        public Task ReadyAsync(bool isReady)
+        {
+            this.roomContext.RoomUserDataList[this.ConnectionId].JoinedUser.IsReady = isReady;
+
+            // オーナーに通知
+            this.roomContext.Group.Except(this.ConnectionId).OnUserReady(this.ConnectionId, isReady);
+
+            return Task.CompletedTask;
+        }
+        public Task StartGameAsync()
+        {
+            // ★ルーム名は roomNamed
+            string rn = roomNamed;
+
+            // ★ユーザーデータ取得（JoinedUser）
+            if (!roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var roomUser))
+                return Task.CompletedTask;
+
+            // ★オーナーでなければ開始不可
+            if (!roomUser.JoinedUser.IsOwner)
+            {
+                Console.WriteLine("[START GAME] Only owner can start the game.");
+                return Task.CompletedTask;
+            }
+
+            Console.WriteLine($"[START GAME] Owner {this.ConnectionId} is starting the game in room {rn}");
+
+            // ★ 全員へブロードキャスト送信
+            roomContext.Group.All.OnGameStarted();
+
             return Task.CompletedTask;
         }
     }

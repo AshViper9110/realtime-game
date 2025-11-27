@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\student\\Documents\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj": {}
+    "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj": {}
   },
   "projects": {
-    "C:\\Users\\student\\Documents\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj": {
+    "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\student\\Documents\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
+        "projectUniqueName": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
         "projectName": "realtime_game.Shared",
-        "projectPath": "C:\\Users\\student\\Documents\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
+        "projectPath": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
         "packagesPath": "C:\\Users\\student\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\student\\Documents\\Git\\realtime-game\\src\\realtime_game.Shared\\.artifacts\\obj\\realtime_game.Shared\\",
+        "outputPath": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\.artifacts\\obj\\realtime_game.Shared\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

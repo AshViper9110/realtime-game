@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "8hmWyxun+yU=",
+  "dgSpecHash": "bliIwACoa7A=",
   "success": true,
-  "projectFilePath": "C:\\Users\\student\\Documents\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
+  "projectFilePath": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\student\\.nuget\\packages\\grpc.core.api\\2.57.0\\grpc.core.api.2.57.0.nupkg.sha512",
     "C:\\Users\\student\\.nuget\\packages\\magiconion.abstractions\\7.0.6\\magiconion.abstractions.7.0.6.nupkg.sha512",

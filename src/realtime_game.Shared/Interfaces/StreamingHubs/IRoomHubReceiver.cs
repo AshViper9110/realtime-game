@@ -10,7 +10,9 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         //[サーバーから呼び出す]
         void OnJoin(JoinedUser user);
         void OnLeave(Guid connectionId);
-
         void OnMove(Guid connectionId, Vector3 pos, Quaternion rot);
+        //void OnLeftUserAll();
+        void OnUserReady(Guid connectionId, bool isReady);
+        void OnGameStarted();
     }
 }

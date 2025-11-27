@@ -12,11 +12,14 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         Task<Guid> GetConnectionId();
         Task<JoinedUser[]> JoinAsync(string roomName, int userId);
 
-        Task LeaveAsync(string roomName);
+        Task LeaveAsync();
 
         Task<List<string>> GetRoomListAsync();
 
         Task MoveAsync(Vector3 pos, Quaternion rot);
 
+        Task ReadyAsync(bool isReady);
+
+        Task StartGameAsync();
     }
 }

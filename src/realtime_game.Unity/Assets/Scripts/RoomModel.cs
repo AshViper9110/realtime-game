@@ -5,9 +5,9 @@ using realtime_game.Server.StreamingHubs;
 using realtime_game.Shared.Interfaces.StreamingHubs;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.TextCore.Text;
 
 public class RoomModel : BaseModel, IRoomHubReceiver
 {
@@ -17,20 +17,27 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Guid ConnectionId { get; set; }
 
     public Action<JoinedUser> OnJoinedUser { get; set; }
-    public Action<JoinedUser> OnLeavedUser { get; set; }
-
+    public Action<Guid> OnLeavedUser { get; set; }
+    public Action OnLeftUserAll { get; set; }
     public Action<Vector3, Quaternion> OnMoveUser { get; set; }
 
-    // 接続ユーザー保持（OnLeave のために必要）
+    // ★ ゲーム開始イベント（GameDirector で受ける用）
+    public Action OnGameStartedReceived { get; set; }
+
     private readonly Dictionary<Guid, JoinedUser> userTable = new();
 
     GameDirector gameDirector;
+    UserListUI userListUI;
 
     private void Start()
     {
-        gameDirector = GetComponent<GameDirector>(); // 自分にアタッチされている場合
+        gameDirector = GetComponent<GameDirector>();
+        userListUI = GetComponent<UserListUI>();
     }
 
+    // ============================
+    //     StreamingHub 接続
+    // ============================
     public async UniTask ConnectAsync()
     {
         Debug.Log("Connecting to server...");
@@ -46,63 +53,60 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     {
         if (roomHub != null) await roomHub.DisposeAsync();
         if (channel != null) await channel.ShutdownAsync();
-        roomHub = null;
-        channel = null;
     }
 
     async void OnDestroy() { await DisconnectAsync(); }
 
-    // --- 参加 ---
+
+    // ============================
+    //     Join / Leave
+    // ============================
     public async UniTask JoinAsync(string roomName, int userId)
     {
         JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
 
         foreach (var user in users)
         {
-            if (user.ConnectionId == this.ConnectionId)
-                continue; // ★ 自分はスキップ
-
+            userListUI.AddUser(user);
             userTable[user.ConnectionId] = user;
-            OnJoinedUser?.Invoke(user);
+
+            if (user.ConnectionId != ConnectionId)
+                OnJoinedUser?.Invoke(user);
         }
     }
 
-    // --- 退出 ---
-    public async UniTask LeaveAsync(string roomName)
+    public async UniTask LeaveAsync()
     {
-        await roomHub.LeaveAsync(roomName);
+        await roomHub.LeaveAsync();
+        userListUI.SetList();
+        OnLeftUserAll?.Invoke();
+    }
+
+    public async UniTask StartGameAsync()
+    {
+        await roomHub.StartGameAsync();
+        OnGameStartedReceived?.Invoke();
     }
 
 
-    public async UniTask MoveAsync(Vector3 pos, Quaternion rot)
-    {
-        if (roomHub == null) return;
-        await roomHub.MoveAsync(pos, rot);
-    }
+    // ============================
+    //     Server → Client Notice
+    // ============================
 
-    // --- サーバーからの通知 ---
-    public void OnLeave(Guid connectionId)
-    {
-        Debug.Log($"=== User Leaved === {connectionId}");
-
-        if (userTable.TryGetValue(connectionId, out var user))
-        {
-            // Unityへ通知
-            OnLeavedUser?.Invoke(user);
-
-            // テーブル削除
-            userTable.Remove(connectionId);
-        }
-    }
-
-    // --- サーバーからの通知 ---
     public void OnJoin(JoinedUser user)
     {
         Debug.Log($"=== User Joined === {user.ConnectionId} / {user.UserData.Name}");
 
-        userTable[user.ConnectionId] = user; // 保持
+        userListUI.AddUser(user);
+        userTable[user.ConnectionId] = user;
 
         OnJoinedUser?.Invoke(user);
+    }
+
+    public void OnLeave(Guid connectionId)
+    {
+        userListUI.RemoveUser(connectionId);
+        OnLeavedUser?.Invoke(connectionId);
     }
 
     public void OnMove(Guid connectionId, Vector3 pos, Quaternion rot)
@@ -110,14 +114,56 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         gameDirector.OnMoveCharacter(connectionId, pos, rot);
     }
 
+    public void OnUserReady(Guid connectionId, bool isReady)
+    {
+        if (userTable.TryGetValue(connectionId, out var user))
+        {
+            user.IsReady = isReady;
+            Debug.Log($"User {user.UserData.Name} ready={isReady}");
+        }
+    }
+
+
+    // ★ これがサーバーの OnGameStarted() 受信
+    public void OnGameStarted()
+    {
+        Debug.Log("=== Game Started Received ===");
+
+        // ★ Unity 側 GameDirector に通知するイベント
+        OnGameStartedReceived?.Invoke();
+    }
+
+
+    // ============================
+    //     Helper API
+    // ============================
+    public bool CanStartGame()
+    {
+        return userTable.Values.All(u => u.IsOwner || u.IsReady);
+    }
+
+    public JoinedUser GetJoinedUser(Guid connectionId)
+    {
+        userTable.TryGetValue(connectionId, out var user);
+        return user;
+    }
+
     public async UniTask<List<string>> GetRoomListAsync()
     {
         if (roomHub == null)
-        {
-            Debug.LogWarning("Not connected to server yet!");
             return new List<string>();
-        }
 
         return await roomHub.GetRoomListAsync();
     }
+
+    public async UniTask SendReadyAsync(bool isReady)
+    {
+        await roomHub.ReadyAsync(isReady);
+    }
+
+    public async Task MoveAsync(Vector3 pos, Quaternion rot)
+    {
+        await roomHub.MoveAsync(pos, rot);
+    }
 }
+

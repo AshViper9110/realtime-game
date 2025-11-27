@@ -13,5 +13,9 @@ namespace realtime_game.Server.StreamingHubs
         public User UserData { get; set; }
         [Key(2)]
         public int JoinOrder { get; set; }
+        [Key(3)]
+        public bool IsReady { get; set; } = false;
+        [Key(4)]
+        public bool IsOwner { get; set; } = false; // 新規
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Cysharp.Runtime.Multicast;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using realtime_game.Shared.Interfaces.StreamingHubs;
 
 
@@ -11,6 +12,7 @@ namespace realtime_game.Server.StreamingHubs
         public IMulticastSyncGroup<Guid, IRoomHubReceiver> Group { get; }
         public Dictionary<Guid, RoomUserData> RoomUserDataList { get; } =
             new Dictionary<Guid, RoomUserData>();
+        public Guid OwnerConnectionId { get; set; } // ルーム作成者
 
         public RoomContext(IMulticastGroupProvider groupProvider, string roomName)
         {
