@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 public class GameDirector : MonoBehaviour
 {
-    public static bool isJoin = false;
+    public static bool isStart = false;
 
     RoomModel roomModel;
     UserModel userModel;
@@ -19,7 +19,7 @@ public class GameDirector : MonoBehaviour
 
     [SerializeField] GameObject characterPrefab;
     [SerializeField] TMP_InputField roomName;
-    [SerializeField] TMP_InputField userID;
+    [SerializeField] TMP_InputField userName;
     [SerializeField] GameObject bg;
     [SerializeField] GameObject leaveButton;
     [SerializeField] Transform roomListContent;      // ScrollView Content
@@ -28,8 +28,9 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject Menu;
     [SerializeField] GameObject startButton; // ゲーム開始ボタン
     [SerializeField] GameObject readyButton; // 準備ボタン
+    [SerializeField] GameObject player;
 
-    User myself;
+    string myself;
     Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
     float sendInterval = 0.1f; // 0.1 秒に1回 = 1秒で10回
     float lastSendTime = 0;
@@ -44,11 +45,19 @@ public class GameDirector : MonoBehaviour
         roomModel.OnLeavedUser += this.OnLeaveUser;
         roomModel.OnLeftUserAll += this.OnLeftUserAll;
         roomModel.OnGameStartedReceived += this.OnGameStarted;
+        //ObjectのActiveSet
+        startButton.SetActive(false);
+        readyButton.SetActive(false);
+        bg.SetActive(true);
+        leaveButton.SetActive(false);
+        Menu.SetActive(false);
+        player.transform.position = Vector3.zero;
+        //player.transform.rotation = Quaternion.identity;
     }
 
     private void LateUpdate()
     {
-        if (!isJoin) return;
+        if (!isStart) return;
 
         if (Time.time - lastSendTime >= sendInterval)
         {
@@ -73,39 +82,26 @@ public class GameDirector : MonoBehaviour
 
         bg.SetActive(true);
         leaveButton.SetActive(false);
-        isJoin = false;
+        isStart = false;
+        player.transform.position = Vector3.zero;
+        player.transform.rotation = Quaternion.identity;
     }
 
     public async UniTask JoinRoom(string room)
     {
-        if (!int.TryParse(userID.text, out int uid) || uid <= 0)
-        {
-            Debug.Log("Invalid User ID.");
-            return;
-        }
-
-        try
-        {
-            myself = await userModel.GetUser(uid);
-            Debug.Log($"Myself Loaded: {myself.Name}");
-        }
-        catch (Exception e)
-        {
-            Debug.LogException(e);
-            return;
-        }
-
-        await roomModel.JoinAsync(room, uid);
+        myself = userName.text;
+        await roomModel.JoinAsync(room, myself);
         JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
         SetupRoomUI(joinedUser);
-        bg.SetActive(false);
-        leaveButton.SetActive(true);
 
         Debug.Log($"Joined room: {room}");
     }
 
     private void SetupRoomUI(JoinedUser joinedUser)
     {
+        Menu.SetActive(true);
+        bg.SetActive(false);
+        leaveButton.SetActive(true);
         if (joinedUser.IsOwner)
         {
             startButton.SetActive(true);
@@ -121,21 +117,19 @@ public class GameDirector : MonoBehaviour
     public async void UpdateStartButton()
     {
         await roomModel.StartGameAsync();
-        isJoin = true;
     }
 
     public void OnReadyButtonClicked()
     {
         roomModel.SendReadyAsync(true).Forget();
         readyButton.SetActive(false); // 一度押したら非表示
-        isJoin = true;
     }
 
     // --- Callback ---
     private void OnJoinedUser(JoinedUser user)
     {
         // Skip self
-        if (user.UserData.Id == myself?.Id) return;
+        if (user.UserName == myself) return;
 
         if (characterList.ContainsKey(user.ConnectionId))
             return;
@@ -147,8 +141,7 @@ public class GameDirector : MonoBehaviour
 
         Debug.Log("=== Joined User ===");
         Debug.Log($"ConnectionId: {user.ConnectionId}");
-        Debug.Log($"UserId: {user.UserData.Id}");
-        Debug.Log($"UserName: {user.UserData.Name}");
+        Debug.Log($"UserName: {user.UserName}");
     }
 
     // --- Callback ---
@@ -208,28 +201,13 @@ public class GameDirector : MonoBehaviour
 
     public async void CreateRoom()
     {
-        if (roomName == null || string.IsNullOrEmpty(roomName.text))return;
-        if (!int.TryParse(userID.text, out int uid) || uid <= 0) return;
-
-        try
-        {
-            myself = await userModel.GetUser(uid);
-            Debug.Log($"Myself Loaded: {myself.Name}");
-        }
-        catch (Exception e)
-        {
-            Debug.LogException(e);
-            return;
-        }
+        myself = userName.text;
 
         string room = roomName.text;
-        await roomModel.JoinAsync(room, uid);
+        await roomModel.JoinAsync(room, myself);
 
-        bg.SetActive(false);
-        leaveButton.SetActive(true);
         JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
         SetupRoomUI(joinedUser);
-        isJoin = true;
 
         Debug.Log($"Create room: {room}");
     }
@@ -254,6 +232,7 @@ public class GameDirector : MonoBehaviour
         Menu.SetActive(false);
         startButton.SetActive(false);
         readyButton.SetActive(false);
+        isStart = true;
 
         //StartGameplay();
     }

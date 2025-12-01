@@ -20,9 +20,8 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<Guid> OnLeavedUser { get; set; }
     public Action OnLeftUserAll { get; set; }
     public Action<Vector3, Quaternion> OnMoveUser { get; set; }
-
-    // ★ ゲーム開始イベント（GameDirector で受ける用）
     public Action OnGameStartedReceived { get; set; }
+    public Action<Guid,bool> OnReadyUser { get; set; }
 
     private readonly Dictionary<Guid, JoinedUser> userTable = new();
 
@@ -61,7 +60,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // ============================
     //     Join / Leave
     // ============================
-    public async UniTask JoinAsync(string roomName, int userId)
+    public async UniTask JoinAsync(string roomName, string userId)
     {
         JoinedUser[] users = await roomHub.JoinAsync(roomName, userId);
 
@@ -85,7 +84,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public async UniTask StartGameAsync()
     {
         await roomHub.StartGameAsync();
-        OnGameStartedReceived?.Invoke();
+        //OnGameStartedReceived?.Invoke();
     }
 
 
@@ -95,7 +94,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
 
     public void OnJoin(JoinedUser user)
     {
-        Debug.Log($"=== User Joined === {user.ConnectionId} / {user.UserData.Name}");
+        Debug.Log($"=== User Joined === {user.ConnectionId} / {user.UserName}");
 
         userListUI.AddUser(user);
         userTable[user.ConnectionId] = user;
@@ -119,7 +118,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         if (userTable.TryGetValue(connectionId, out var user))
         {
             user.IsReady = isReady;
-            Debug.Log($"User {user.UserData.Name} ready={isReady}");
+            Debug.Log($"User {user.UserName} ready={isReady}");
         }
     }
 
@@ -132,7 +131,6 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         // ★ Unity 側 GameDirector に通知するイベント
         OnGameStartedReceived?.Invoke();
     }
-
 
     // ============================
     //     Helper API

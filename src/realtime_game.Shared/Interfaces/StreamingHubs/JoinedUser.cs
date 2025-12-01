@@ -10,7 +10,7 @@ namespace realtime_game.Server.StreamingHubs
         [Key(0)]
         public Guid ConnectionId { get; set; }
         [Key(1)]
-        public User UserData { get; set; }
+        public string UserName { get; set; }
         [Key(2)]
         public int JoinOrder { get; set; }
         [Key(3)]

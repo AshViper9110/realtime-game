@@ -30,7 +30,7 @@ public class PrayerCon : MonoBehaviour
 
     void Update()
     {
-        if (!GameDirector.isJoin) return;
+        if (!GameDirector.isStart) return;
 
         float inputX = Input.GetAxis("Horizontal");
         float inputY = Input.GetAxis("Vertical");

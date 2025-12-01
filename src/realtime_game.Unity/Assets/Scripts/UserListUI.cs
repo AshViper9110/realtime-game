@@ -26,7 +26,7 @@ public class UserListUI : MonoBehaviour
         }
 
         var obj = Instantiate(userItemPrefab, content);
-        obj.GetComponentInChildren<TMP_Text>().text = user.UserData.Name;
+        obj.GetComponentInChildren<TMP_Text>().text = user.UserName;
         items[user.ConnectionId] = obj;
     }
 

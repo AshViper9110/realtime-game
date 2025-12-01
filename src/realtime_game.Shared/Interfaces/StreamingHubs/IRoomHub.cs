@@ -10,7 +10,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
     public interface IRoomHub : IStreamingHub<IRoomHub, IRoomHubReceiver>
     {
         Task<Guid> GetConnectionId();
-        Task<JoinedUser[]> JoinAsync(string roomName, int userId);
+        Task<JoinedUser[]> JoinAsync(string roomName, string userName);
 
         Task LeaveAsync();
 

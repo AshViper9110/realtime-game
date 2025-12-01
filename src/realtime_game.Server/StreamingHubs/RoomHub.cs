@@ -1,7 +1,6 @@
 ﻿using Cysharp.Runtime.Multicast;
 using MagicOnion;
 using MagicOnion.Server.Hubs;
-using Microsoft.EntityFrameworkCore;
 using realtime_game.Server.Models.Contexts;
 using realtime_game.Server.Models.Entities;
 using realtime_game.Shared.Interfaces.StreamingHubs;
@@ -17,10 +16,10 @@ namespace realtime_game.Server.StreamingHubs
         private string roomNamed;
 
 
-        public async Task<JoinedUser[]> JoinAsync(string roomName, int userId)
+        public async Task<JoinedUser[]> JoinAsync(string roomName, string userName)
         {
             Console.WriteLine("--------------------------------------------------");
-            Console.WriteLine($"[JOIN REQUEST] roomName={roomName}, userId={userId}, connId={this.ConnectionId}");
+            Console.WriteLine($"[JOIN REQUEST] roomName={roomName}, userName={userName}, connId={this.ConnectionId}");
             roomNamed = roomName; 
             // --- 1. ルームコンテキスト取得 / 作成 ---
             lock (roomContextRepos)
@@ -46,7 +45,7 @@ namespace realtime_game.Server.StreamingHubs
             this.roomContext.Group.Add(this.ConnectionId, Client);
 
             // --- 3. DB からユーザー取得 ---
-            Console.WriteLine($"[DB] Fetching user data from DB: userId={userId}");
+            /*Console.WriteLine($"[DB] Fetching user data from DB: userId={userId}");
             GameDbContext context = new GameDbContext();
             User user = context.Users.FirstOrDefault(u => u.Id == userId);
 
@@ -56,13 +55,13 @@ namespace realtime_game.Server.StreamingHubs
                 return Array.Empty<JoinedUser>();
             }
 
-            Console.WriteLine($"[DB] User found: {user.Name} (ID={user.Id})");
+            Console.WriteLine($"[DB] User found: {user.Name} (ID={user.Id})");*/
 
             // --- 4. JoinedUser 生成 ---
             var joinedUser = new JoinedUser
             {
                 ConnectionId = this.ConnectionId,
-                UserData = user,
+                UserName = userName,
                 IsOwner = this.ConnectionId == this.roomContext.OwnerConnectionId
             };
 
@@ -83,7 +82,7 @@ namespace realtime_game.Server.StreamingHubs
             // --- 7. 状態ログ ---
             int count = this.roomContext.RoomUserDataList.Count;
             Console.WriteLine($"[ROOM STATUS] Room '{roomName}' now has {count} users.");
-            Console.WriteLine($"[JOIN COMPLETE] {user.Name} joined room '{roomName}'.");
+            Console.WriteLine($"[JOIN COMPLETE] {userName} joined room '{roomName}'.");
             Console.WriteLine("--------------------------------------------------");
 
             return this.roomContext.RoomUserDataList
@@ -106,27 +105,42 @@ namespace realtime_game.Server.StreamingHubs
 
         public Task LeaveAsync()
         {
-            //　退室したことを全メンバーに通知
-            this.roomContext.Group.All.OnLeave(this.ConnectionId);
+            // roomContext が null の場合 → Join 完了前に切断されたケースなので何もしない
+            if (roomContext == null)
+                return Task.CompletedTask;
 
-            //　ルーム内のメンバーから自分を削除
-            this.roomContext.Group.Remove(this.ConnectionId);
-
-            //　ルームデータから退室したユーザーを削除
-            this.roomContext.RoomUserDataList.Remove(this.ConnectionId);
-            if (this.roomContext.RoomUserDataList.Count <= 0)
+            // Group が null の可能性もある
+            if (roomContext.Group != null)
             {
-                roomContextRepos.RemoveContext(roomNamed);
+                try
+                {
+                    roomContext.Group.All.OnLeave(this.ConnectionId);
+                }
+                catch
+                {
+                    // Broadcast 中に切断されている場合は無視
+                }
+
+                roomContext.Group.Remove(this.ConnectionId);
             }
+
+            // ルームデータの削除
+            if (roomContext.RoomUserDataList != null)
+            {
+                roomContext.RoomUserDataList.Remove(this.ConnectionId);
+
+                if (roomContext.RoomUserDataList.Count <= 0)
+                {
+                    roomContextRepos.RemoveContext(roomNamed);
+                }
+            }
+
             return Task.CompletedTask;
         }
-
-
-        protected override ValueTask OnDisconnected()
+        protected override async ValueTask OnDisconnected()
         {
             Console.WriteLine($"[DISCONNECTED] connId={this.ConnectionId}");
-            LeaveAsync();
-            return CompletedTask;
+            await LeaveAsync();
         }
         public Task<List<string>> GetRoomListAsync()
         {
@@ -162,10 +176,7 @@ namespace realtime_game.Server.StreamingHubs
         }
         public Task StartGameAsync()
         {
-            // ★ルーム名は roomNamed
-            string rn = roomNamed;
-
-            // ★ユーザーデータ取得（JoinedUser）
+            // ★ユーザーデータ取得
             if (!roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var roomUser))
                 return Task.CompletedTask;
 
@@ -176,12 +187,28 @@ namespace realtime_game.Server.StreamingHubs
                 return Task.CompletedTask;
             }
 
-            Console.WriteLine($"[START GAME] Owner {this.ConnectionId} is starting the game in room {rn}");
+            // -----------------------------------------
+            // ★ オーナー以外が全員 Ready か確認
+            // -----------------------------------------
+            bool allNonOwnerReady = roomContext.RoomUserDataList
+                .Where(u => !u.Value.JoinedUser.IsOwner)   // ← オーナー以外
+                .All(u => u.Value.JoinedUser.IsReady);     // ← Ready 状態？
 
-            // ★ 全員へブロードキャスト送信
+            if (!allNonOwnerReady)
+            {
+                Console.WriteLine("[START GAME] Not all non-owner users are ready. Game cannot start.");
+                return Task.CompletedTask; // ★開始しない
+            }
+
+            // -----------------------------------------
+            // ★ ゲーム開始（全員 Ready を確認済み）
+            // -----------------------------------------
+            Console.WriteLine($"[START GAME] Owner {this.ConnectionId} is starting the game in room {roomNamed}");
+
             roomContext.Group.All.OnGameStarted();
 
             return Task.CompletedTask;
         }
+
     }
 }
