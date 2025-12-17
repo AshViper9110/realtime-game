@@ -1,12 +1,13 @@
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
-using realtime_game.Server.Models.Entities;
 using realtime_game.Server.StreamingHubs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Splines;
 using UnityEngine.UI;
 
 public class GameDirector : MonoBehaviour
@@ -15,7 +16,13 @@ public class GameDirector : MonoBehaviour
 
     RoomModel roomModel;
     UserModel userModel;
-   
+
+    private class PlayerPos
+    {
+        public Guid id;
+        public GameObject obj;
+        public float z;
+    }
 
     [SerializeField] GameObject characterPrefab;
     [SerializeField] TMP_InputField roomName;
@@ -29,11 +36,36 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject startButton; // ゲーム開始ボタン
     [SerializeField] GameObject readyButton; // 準備ボタン
     [SerializeField] GameObject player;
+    [SerializeField] Text rankingText;
+    [SerializeField] private SplineContainer spline;
 
     string myself;
     Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
     float sendInterval = 0.1f; // 0.1 秒に1回 = 1秒で10回
     float lastSendTime = 0;
+    private List<Racer> racers = new();
+
+    public class Racer
+    {
+        public Guid id;
+        public Transform tf;
+        public float progress; // スプラインの距離
+
+        public void UpdateProgress(SplineContainer splineContainer)
+        {
+            var spline = splineContainer.Spline;
+
+            // 最近点を取得
+            float3 nearestPos;
+            float t;
+            SplineUtility.GetNearestPoint(spline, tf.position, out nearestPos, out t);
+
+            float length = spline.GetLength();
+
+            // スプライン上の進行度
+            progress = length * t;
+        }
+    }
 
     async void Start()
     {
@@ -53,18 +85,45 @@ public class GameDirector : MonoBehaviour
         Menu.SetActive(false);
         player.transform.position = Vector3.zero;
         //player.transform.rotation = Quaternion.identity;
+        racers.Add(new Racer
+        {
+            id = roomModel.ConnectionId,
+            tf = planeModel.transform
+        });
     }
 
     private void LateUpdate()
     {
         if (!isStart) return;
 
+
         if (Time.time - lastSendTime >= sendInterval)
         {
             lastSendTime = Time.time;
             SendMoveMessage().Forget();
         }
+        UpdateRanking();
     }
+
+    private void UpdateRanking()
+    {
+        // 各プレイヤーの進行度を更新
+        foreach (var r in racers)
+        {
+            r.UpdateProgress(spline);
+        }
+
+        // 進行度（スプライン距離）で順位ソート
+        var sorted = racers
+            .OrderByDescending(r => r.progress)
+            .ToList();
+
+        // 自分の順位
+        int myRank = sorted.FindIndex(r => r.id == roomModel.ConnectionId) + 1;
+
+        rankingText.text = $"{myRank} 位";
+    }
+
 
     private async UniTaskVoid SendMoveMessage()
     {
@@ -138,6 +197,12 @@ public class GameDirector : MonoBehaviour
         characterObject.transform.position = Vector3.zero;
 
         characterList[user.ConnectionId] = characterObject;
+
+        racers.Add(new Racer
+        {
+            id = user.ConnectionId,
+            tf = characterObject.transform
+        });
 
         Debug.Log("=== Joined User ===");
         Debug.Log($"ConnectionId: {user.ConnectionId}");
@@ -219,9 +284,9 @@ public class GameDirector : MonoBehaviour
             Debug.LogWarning($"Character with ConnectionId {connectionId} not found!");
             return;
         }
-        character.transform.DOMove(pos, 0.1f);
+        character.transform.DOMove(pos, 0.5f);
         //character.transform.position = pos;
-        character.transform.DORotateQuaternion(rot, 0.1f);
+        character.transform.DORotateQuaternion(rot, 0.5f);
         //character.transform.rotation = rot;
     }
 

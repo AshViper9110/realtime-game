@@ -7,6 +7,7 @@ public class PrayerCon : MonoBehaviour
     public Transform planeModel;  // 見た目用オブジェクト
     public Image image;
     public LayerMask targetLayer;
+    public LayerMask goalLayer;
 
     [Header("Movement Settings")]
     public float yawSpeed = 60f;      // 左右旋回
@@ -48,7 +49,7 @@ public class PrayerCon : MonoBehaviour
             currentSpeed += deceleration * Time.deltaTime;
 
         currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
-        image.fillAmount = currentSpeed / 40f;
+        image.fillAmount = currentSpeed / 60f;
 
         // --- 前進 ---
         transform.position += transform.forward * currentSpeed * Time.deltaTime;
@@ -73,6 +74,11 @@ public class PrayerCon : MonoBehaviour
         {
             currentSpeed = 5;
             Debug.Log("特定レイヤーと衝突した！");
+        }
+
+        if (((1 << collision.gameObject.layer) & goalLayer) != 0)
+        {
+            Debug.Log("ごーる");
         }
     }
 }
