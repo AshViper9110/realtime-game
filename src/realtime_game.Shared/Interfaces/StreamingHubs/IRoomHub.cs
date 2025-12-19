@@ -21,5 +21,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         Task ReadyAsync(bool isReady);
 
         Task StartGameAsync();
+
+        Task AllGoalAsync(Guid guid);
     }
 }

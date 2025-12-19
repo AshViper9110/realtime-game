@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using realtime_game.Server.StreamingHubs;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -38,6 +39,8 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject player;
     [SerializeField] Text rankingText;
     [SerializeField] private SplineContainer spline;
+    public GameObject spownpoint;
+    bool isGoalSent = false;
 
     string myself;
     Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
@@ -77,6 +80,7 @@ public class GameDirector : MonoBehaviour
         roomModel.OnLeavedUser += this.OnLeaveUser;
         roomModel.OnLeftUserAll += this.OnLeftUserAll;
         roomModel.OnGameStartedReceived += this.OnGameStarted;
+        roomModel.OnGoalUser += this.OnGameGoal;
         //ObjectのActiveSet
         startButton.SetActive(false);
         readyButton.SetActive(false);
@@ -90,6 +94,7 @@ public class GameDirector : MonoBehaviour
             id = roomModel.ConnectionId,
             tf = planeModel.transform
         });
+        player.transform.position = spownpoint.transform.position;
     }
 
     private void LateUpdate()
@@ -144,6 +149,7 @@ public class GameDirector : MonoBehaviour
         isStart = false;
         player.transform.position = Vector3.zero;
         player.transform.rotation = Quaternion.identity;
+        player.transform.position = spownpoint.transform.position;
     }
 
     public async UniTask JoinRoom(string room)
@@ -152,7 +158,7 @@ public class GameDirector : MonoBehaviour
         await roomModel.JoinAsync(room, myself);
         JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
         SetupRoomUI(joinedUser);
-
+        
         Debug.Log($"Joined room: {room}");
     }
 
@@ -292,13 +298,59 @@ public class GameDirector : MonoBehaviour
 
     public void OnGameStarted()
     {
-        Debug.Log("★ GAME STARTED ★");
-
+        player.transform.position = spownpoint.transform.position;
         Menu.SetActive(false);
         startButton.SetActive(false);
         readyButton.SetActive(false);
-        isStart = true;
-
-        //StartGameplay();
+        StartCoroutine(StartAfterDelay());
     }
+    private IEnumerator StartAfterDelay()
+    {
+        yield return new WaitForSeconds(3f);
+        Debug.Log("★ GAME STARTED ★");
+        isStart = true;
+    }
+
+    public void SendGoal()
+    {
+        if (isGoalSent) return;
+
+        isGoalSent = true;
+        roomModel.GoalAsync().Forget();
+    }
+
+    public void OnGameGoal()
+    {
+        Debug.Log("All Goal");
+        isStart = false;
+        StartCoroutine(ReturnToMenuAfterDelay());
+    }
+
+    private IEnumerator ReturnToMenuAfterDelay()
+    {
+        yield return new WaitForSeconds(3f);
+
+        // UI をロビー状態へ戻す
+        Menu.SetActive(true);
+        leaveButton.SetActive(true);
+        JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
+        if (joinedUser.IsOwner)
+        {
+            startButton.SetActive(true);
+            readyButton.SetActive(false);
+        }
+        else
+        {
+            startButton.SetActive(false);
+            readyButton.SetActive(true);
+        }
+
+        // ゴール送信フラグをリセット
+        isGoalSent = false;
+
+        // プレイヤー位置リセット
+        player.transform.position = spownpoint.transform.position;
+        player.transform.rotation = Quaternion.identity;
+    }
+
 }

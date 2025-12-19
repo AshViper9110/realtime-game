@@ -8,6 +8,7 @@ public class PrayerCon : MonoBehaviour
     public Image image;
     public LayerMask targetLayer;
     public LayerMask goalLayer;
+    public GameDirector gameDirector;
 
     [Header("Movement Settings")]
     public float yawSpeed = 60f;      // 左右旋回
@@ -23,6 +24,7 @@ public class PrayerCon : MonoBehaviour
 
     private float currentSpeed;
     private float currentRoll = 0f;
+    bool isGoal = false;
 
     void Start()
     {
@@ -76,9 +78,11 @@ public class PrayerCon : MonoBehaviour
             Debug.Log("特定レイヤーと衝突した！");
         }
 
-        if (((1 << collision.gameObject.layer) & goalLayer) != 0)
+        if (!isGoal && ((1 << collision.gameObject.layer) & goalLayer) != 0)
         {
+            isGoal = true;
             Debug.Log("ごーる");
+            gameDirector.SendGoal();
         }
     }
 }

@@ -14,5 +14,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         //void OnLeftUserAll();
         void OnUserReady(Guid connectionId, bool isReady);
         void OnGameStarted();
+        void OnGameGoaled();
+
     }
 }

@@ -200,12 +200,44 @@ namespace realtime_game.Server.StreamingHubs
                 return Task.CompletedTask; // ★開始しない
             }
 
+            foreach (var user in roomContext.RoomUserDataList.Values)
+            {
+                user.IsGoal = false;
+            }
+
             // -----------------------------------------
             // ★ ゲーム開始（全員 Ready を確認済み）
             // -----------------------------------------
             Console.WriteLine($"[START GAME] Owner {this.ConnectionId} is starting the game in room {roomNamed}");
 
             roomContext.Group.All.OnGameStarted();
+
+            return Task.CompletedTask;
+        }
+        public Task AllGoalAsync(Guid guid)
+        {
+            // ユーザーデータ取得
+            if (!roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var roomUser))
+                return Task.CompletedTask;
+
+            // 自分をゴール状態にする
+            roomUser.IsGoal = true;
+
+            // 全員がゴールしたか判定
+            bool allGoal = roomContext.RoomUserDataList.Values
+                .All(u => u.IsGoal);
+
+            if (allGoal)
+            {
+                // ★ Ready を全員 false に戻す
+                foreach (var user in roomContext.RoomUserDataList.Values)
+                {
+                    user.JoinedUser.IsReady = false;
+                }
+
+                // ★ 全員ゴール通知
+                roomContext.Group.All.OnGameGoaled();
+            }
 
             return Task.CompletedTask;
         }

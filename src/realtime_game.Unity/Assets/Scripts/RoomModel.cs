@@ -22,6 +22,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<Vector3, Quaternion> OnMoveUser { get; set; }
     public Action OnGameStartedReceived { get; set; }
     public Action<Guid,bool> OnReadyUser { get; set; }
+    public Action OnGoalUser { get; set; }
 
     private readonly Dictionary<Guid, JoinedUser> userTable = new();
 
@@ -87,6 +88,11 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         //OnGameStartedReceived?.Invoke();
     }
 
+    public async UniTask GoalAsync()
+    {
+        await roomHub.AllGoalAsync(ConnectionId);
+    }
+
 
     // ============================
     //     Server → Client Notice
@@ -130,6 +136,10 @@ public class RoomModel : BaseModel, IRoomHubReceiver
 
         // ★ Unity 側 GameDirector に通知するイベント
         OnGameStartedReceived?.Invoke();
+    }
+    public void OnGameGoaled()
+    {
+        OnGoalUser?.Invoke();
     }
 
     // ============================
