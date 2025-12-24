@@ -46,4 +46,27 @@ public class UserListUI : MonoBehaviour
 
         items.Clear();
     }
+
+    public void ShowRanking(List<Guid> goalOrder, Func<Guid, JoinedUser> getUser)
+    {
+        // Šù‘¶UI‚ğƒNƒŠƒA
+        foreach (Transform child in content)
+            Destroy(child.gameObject);
+
+        items.Clear();
+
+        // ‡ˆÊ‡‚É•\¦
+        for (int i = 0; i < goalOrder.Count; i++)
+        {
+            var user = getUser(goalOrder[i]);
+            if (user == null) continue;
+
+            var obj = Instantiate(userItemPrefab, content);
+
+            var text = obj.GetComponentInChildren<TMP_Text>();
+            text.text = $"{i + 1} : {user.UserName}";
+
+            items[user.ConnectionId] = obj;
+        }
+    }
 }

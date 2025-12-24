@@ -22,7 +22,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<Vector3, Quaternion> OnMoveUser { get; set; }
     public Action OnGameStartedReceived { get; set; }
     public Action<Guid,bool> OnReadyUser { get; set; }
-    public Action OnGoalUser { get; set; }
+    public Action<List<Guid>> OnGoalUser { get; set; }
 
     private readonly Dictionary<Guid, JoinedUser> userTable = new();
 
@@ -137,9 +137,9 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         // ★ Unity 側 GameDirector に通知するイベント
         OnGameStartedReceived?.Invoke();
     }
-    public void OnGameGoaled()
+    public void OnGameGoaled(List<Guid> goalOrder)
     {
-        OnGoalUser?.Invoke();
+        OnGoalUser?.Invoke(goalOrder);
     }
 
     // ============================

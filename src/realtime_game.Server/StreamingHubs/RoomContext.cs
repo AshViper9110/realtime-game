@@ -1,5 +1,4 @@
 ﻿using Cysharp.Runtime.Multicast;
-using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using realtime_game.Shared.Interfaces.StreamingHubs;
 
 
@@ -22,5 +21,8 @@ namespace realtime_game.Server.StreamingHubs
         }
 
         public void Dispose() { Group.Dispose(); }
+
+        // ゴール順（先着順）
+        public List<RoomUserData> GoalOrder = new();
     }
 }

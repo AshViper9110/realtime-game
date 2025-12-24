@@ -1,5 +1,6 @@
 ﻿using realtime_game.Server.StreamingHubs;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace realtime_game.Shared.Interfaces.StreamingHubs
@@ -14,7 +15,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         //void OnLeftUserAll();
         void OnUserReady(Guid connectionId, bool isReady);
         void OnGameStarted();
-        void OnGameGoaled();
+        void OnGameGoaled(List<Guid> goalOrder);
 
     }
 }

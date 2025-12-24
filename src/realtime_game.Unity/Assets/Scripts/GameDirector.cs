@@ -17,6 +17,7 @@ public class GameDirector : MonoBehaviour
 
     RoomModel roomModel;
     UserModel userModel;
+    UserListUI userListUI;
 
     private class PlayerPos
     {
@@ -52,21 +53,45 @@ public class GameDirector : MonoBehaviour
     {
         public Guid id;
         public Transform tf;
-        public float progress; // スプラインの距離
+
+        public float progress;          // 順位判定用
+        private int lastKnotIndex = 0;   // 巻き戻り防止用
+        private float lastProgress = 0f;
+        private Vector3 lastPosition;
 
         public void UpdateProgress(SplineContainer splineContainer)
         {
             var spline = splineContainer.Spline;
 
-            // 最近点を取得
-            float3 nearestPos;
-            float t;
-            SplineUtility.GetNearestPoint(spline, tf.position, out nearestPos, out t);
+            SplineUtility.GetNearestPoint(
+                spline,
+                tf.position,
+                out _,
+                out float t
+            );
 
-            float length = spline.GetLength();
+            float currentProgress = t * spline.GetLength();
 
-            // スプライン上の進行度
-            progress = length * t;
+            // 移動方向がスプラインの進行方向と一致しているかチェック
+            Vector3 moveDir = (tf.position - lastPosition).normalized;
+            Vector3 splineDir = Vector3.Normalize(
+                spline.EvaluateTangent(t)
+            );
+
+            // 逆方向に大きく移動していたら更新しない
+            if (Vector3.Dot(moveDir, splineDir) < -0.5f)
+            {
+                return;
+            }
+
+            // 正常な前進のみ受理
+            if (currentProgress > lastProgress)
+            {
+                progress = currentProgress;
+                lastProgress = currentProgress;
+            }
+
+            lastPosition = tf.position;
         }
     }
 
@@ -75,6 +100,7 @@ public class GameDirector : MonoBehaviour
         roomModel = GetComponent<RoomModel>();
         await roomModel.ConnectAsync();
         userModel = GetComponent<UserModel>();
+        userListUI = GetComponent<UserListUI>();
         // Event Registration
         roomModel.OnJoinedUser += this.OnJoinedUser;
         roomModel.OnLeavedUser += this.OnLeaveUser;
@@ -92,7 +118,7 @@ public class GameDirector : MonoBehaviour
         racers.Add(new Racer
         {
             id = roomModel.ConnectionId,
-            tf = planeModel.transform
+            tf = player.transform
         });
         player.transform.position = spownpoint.transform.position;
     }
@@ -131,12 +157,20 @@ public class GameDirector : MonoBehaviour
 
 
     private async UniTaskVoid SendMoveMessage()
-    {
-        Vector3 pos = planeModel.transform.position;
-        Quaternion rot = planeModel.transform.rotation;
+{
+    var rb = player.GetComponent<Rigidbody>();
+    if (rb == null) return;
 
-        await roomModel.MoveAsync(pos, rot);
-    }
+    Vector3 currentPos = rb.position;
+    Vector3 velocity = rb.linearVelocity;
+
+    float deltaTime = 0.2f;
+
+    Vector3 predictedPos = currentPos + velocity * deltaTime;
+    Quaternion rot = planeModel.transform.rotation;
+
+    await roomModel.MoveAsync(predictedPos, rot);
+}
 
     public async void LeaveRoom()
     {
@@ -319,10 +353,22 @@ public class GameDirector : MonoBehaviour
         roomModel.GoalAsync().Forget();
     }
 
-    public void OnGameGoal()
+    public void OnGameGoal(List<Guid> goalOrder)
     {
         Debug.Log("All Goal");
         isStart = false;
+
+        // ここで順位表示などに使用可能
+        //ShowResult(goalOrder);
+        for (int i = 0; i < goalOrder.Count; i++)
+        {
+            Debug.Log($"{i + 1}位 : {goalOrder[i]}");
+        }
+        userListUI.ShowRanking(
+        goalOrder,
+        id => roomModel.GetJoinedUser(id)
+    );
+
         StartCoroutine(ReturnToMenuAfterDelay());
     }
 

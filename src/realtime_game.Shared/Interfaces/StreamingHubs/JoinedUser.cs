@@ -1,5 +1,4 @@
 ﻿using MessagePack;
-using realtime_game.Server.Models.Entities;
 using System;
 
 namespace realtime_game.Server.StreamingHubs

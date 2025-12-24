@@ -10,6 +10,8 @@ namespace realtime_game.Server.StreamingHubs
 
         public Quaternion rot;
 
+        public Vector3 vel;
+
         public bool IsGoal;
     }
 }

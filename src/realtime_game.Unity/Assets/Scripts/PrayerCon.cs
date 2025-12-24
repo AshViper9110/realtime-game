@@ -15,7 +15,7 @@ public class PrayerCon : MonoBehaviour
     public float pitchSpeed = 45f;    // 上下
     public float acceleration = 20f;  // 加速量
     public float deceleration = 20f;  // 減速量
-    public float maxSpeed = 40f;      // 最大速度
+    public float maxSpeed = 30f;      // 最大速度
     public float minSpeed = 1f;      // 最低速度
 
     [Header("Visual Roll Settings")]
@@ -51,7 +51,7 @@ public class PrayerCon : MonoBehaviour
             currentSpeed += deceleration * Time.deltaTime;
 
         currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
-        image.fillAmount = currentSpeed / 60f;
+        image.fillAmount = currentSpeed / maxSpeed;
 
         // --- 前進 ---
         transform.position += transform.forward * currentSpeed * Time.deltaTime;

@@ -1,8 +1,5 @@
 ﻿using Cysharp.Runtime.Multicast;
-using MagicOnion;
 using MagicOnion.Server.Hubs;
-using realtime_game.Server.Models.Contexts;
-using realtime_game.Server.Models.Entities;
 using realtime_game.Shared.Interfaces.StreamingHubs;
 using UnityEngine;
 
@@ -220,8 +217,15 @@ namespace realtime_game.Server.StreamingHubs
             if (!roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var roomUser))
                 return Task.CompletedTask;
 
-            // 自分をゴール状態にする
+            // すでにゴール済みなら何もしない（重複防止）
+            if (roomUser.IsGoal)
+                return Task.CompletedTask;
+
+            // ゴール状態にする
             roomUser.IsGoal = true;
+
+            // ゴール順に追加
+            roomContext.GoalOrder.Add(roomUser);
 
             // 全員がゴールしたか判定
             bool allGoal = roomContext.RoomUserDataList.Values
@@ -229,14 +233,23 @@ namespace realtime_game.Server.StreamingHubs
 
             if (allGoal)
             {
-                // ★ Ready を全員 false に戻す
+                // Ready を全員 false に戻す
                 foreach (var user in roomContext.RoomUserDataList.Values)
                 {
                     user.JoinedUser.IsReady = false;
                 }
 
-                // ★ 全員ゴール通知
-                roomContext.Group.All.OnGameGoaled();
+                // ゴール順リストをクライアントへ送信
+                roomContext.Group.All.OnGameGoaled(
+                    roomContext.GoalOrder
+                        .Select(u => u.JoinedUser.ConnectionId) // or Name
+                        .ToList()
+                );
+
+                // 次のゲーム用にリセット
+                roomContext.GoalOrder.Clear();
+                foreach (var u in roomContext.RoomUserDataList.Values)
+                    u.IsGoal = false;
             }
 
             return Task.CompletedTask;
