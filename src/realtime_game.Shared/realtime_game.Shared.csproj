@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <DocumentationFile>$(OutpuutPath)</DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MagicOnion.Abstractions" Version="7.0.6" />
+    <PackageReference Include="MessagePack.UnityShims" Version="3.1.4" />
+  </ItemGroup>
+
+</Project>
