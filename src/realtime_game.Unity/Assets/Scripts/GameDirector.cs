@@ -3,10 +3,11 @@ using DG.Tweening;
 using realtime_game.Server.StreamingHubs;
 using System;
 using System.Collections;
+using System.Globalization;
 using System.Collections.Generic;
+using System.Text;
 using System.Linq;
 using TMPro;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UI;
@@ -19,81 +20,111 @@ public class GameDirector : MonoBehaviour
     UserModel userModel;
     UserListUI userListUI;
 
-    private class PlayerPos
+    // ================= Vehicle =================
+
+    [Serializable]
+    public class VehicleDef
     {
-        public Guid id;
-        public GameObject obj;
-        public float z;
+        public int id;                // 固定ID
+        public GameObject prefab;     // 対応する機体
     }
 
-    [SerializeField] GameObject characterPrefab;
+    [Header("Vehicle Prefabs")]
+    [SerializeField] VehicleDef[] vehicles;
+
+    Dictionary<int, GameObject> vehicleMap;
+
+    // ================= UI =================
+
     [SerializeField] TMP_InputField roomName;
     [SerializeField] TMP_InputField userName;
     [SerializeField] GameObject bg;
     [SerializeField] GameObject leaveButton;
-    [SerializeField] Transform roomListContent;      // ScrollView Content
-    [SerializeField] GameObject roomButtonPrefab;    // Button Prefab
+    [SerializeField] Transform roomListContent;
+    [SerializeField] GameObject roomButtonPrefab;
     [SerializeField] GameObject planeModel;
     [SerializeField] GameObject Menu;
-    [SerializeField] GameObject startButton; // ゲーム開始ボタン
-    [SerializeField] GameObject readyButton; // 準備ボタン
+    [SerializeField] GameObject startButton;
+    [SerializeField] GameObject readyButton;
     [SerializeField] GameObject player;
     [SerializeField] Text rankingText;
+    [SerializeField] GameObject nameTagPrefab;
     [SerializeField] private SplineContainer spline;
     public GameObject spownpoint;
-    bool isGoalSent = false;
+    public Transform vehicleView;
+    GameObject localPlayerModel;
 
+    GameObject vehiclePreview;
+    public int vehicleIndex = 0;     // VehicleID
+
+    bool isGoalSent = false;
     string myself;
-    Dictionary<Guid, GameObject> characterList = new Dictionary<Guid, GameObject>();
-    float sendInterval = 0.1f; // 0.1 秒に1回 = 1秒で10回
+
+    Dictionary<Guid, GameObject> characterList = new();
+    float sendInterval = 0.1f;
     float lastSendTime = 0;
+
+    public static class TextLimitUtil
+    {
+        public static string Clamp(string text, int max)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+
+            var info = new StringInfo(text);
+            int length = info.LengthInTextElements;
+
+            if (length <= max) return text;
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < max; i++)
+            {
+                sb.Append(info.SubstringByTextElements(i, 1));
+            }
+
+            return sb.ToString();
+        }
+    }
+
+    // ================= Racer =================
+
     private List<Racer> racers = new();
 
     public class Racer
     {
         public Guid id;
         public Transform tf;
-
-        public float progress;          // 順位判定用
-        private int lastKnotIndex = 0;   // 巻き戻り防止用
-        private float lastProgress = 0f;
+        public int vehicleIndex;
+        public float progress;
+        private float lastProgress;
         private Vector3 lastPosition;
 
         public void UpdateProgress(SplineContainer splineContainer)
         {
             var spline = splineContainer.Spline;
+            SplineUtility.GetNearestPoint(spline, tf.position, out _, out float t);
+            float cur = t * spline.GetLength();
 
-            SplineUtility.GetNearestPoint(
-                spline,
-                tf.position,
-                out _,
-                out float t
-            );
+            Vector3 dir = (tf.position - lastPosition).normalized;
+            Vector3 splineDir = Vector3.Normalize(spline.EvaluateTangent(t));
+            if (Vector3.Dot(dir, splineDir) < -0.5f) return;
 
-            float currentProgress = t * spline.GetLength();
-
-            // 移動方向がスプラインの進行方向と一致しているかチェック
-            Vector3 moveDir = (tf.position - lastPosition).normalized;
-            Vector3 splineDir = Vector3.Normalize(
-                spline.EvaluateTangent(t)
-            );
-
-            // 逆方向に大きく移動していたら更新しない
-            if (Vector3.Dot(moveDir, splineDir) < -0.5f)
+            if (cur > lastProgress)
             {
-                return;
+                progress = cur;
+                lastProgress = cur;
             }
-
-            // 正常な前進のみ受理
-            if (currentProgress > lastProgress)
-            {
-                progress = currentProgress;
-                lastProgress = currentProgress;
-            }
-
             lastPosition = tf.position;
         }
     }
+
+    // ================= Awake =================
+
+    void Awake()
+    {
+        vehicleMap = vehicles.ToDictionary(v => v.id, v => v.prefab);
+    }
+
+    // ================= Start =================
 
     async void Start()
     {
@@ -101,302 +132,284 @@ public class GameDirector : MonoBehaviour
         await roomModel.ConnectAsync();
         userModel = GetComponent<UserModel>();
         userListUI = GetComponent<UserListUI>();
-        // Event Registration
-        roomModel.OnJoinedUser += this.OnJoinedUser;
-        roomModel.OnLeavedUser += this.OnLeaveUser;
-        roomModel.OnLeftUserAll += this.OnLeftUserAll;
-        roomModel.OnGameStartedReceived += this.OnGameStarted;
-        roomModel.OnGoalUser += this.OnGameGoal;
-        //ObjectのActiveSet
+
+        roomModel.OnJoinedUser += _ => { };
+        roomModel.OnLeavedUser += _ => { };
+        roomModel.OnLeftUserAll += () => { };
+        roomModel.OnGameStartedReceived += OnGameStarted;
+        roomModel.OnGoalUser += OnGameGoal;
+
         startButton.SetActive(false);
         readyButton.SetActive(false);
         bg.SetActive(true);
         leaveButton.SetActive(false);
         Menu.SetActive(false);
-        player.transform.position = Vector3.zero;
-        //player.transform.rotation = Quaternion.identity;
+
+        UpdateLocalVehiclePreview();
+
         racers.Add(new Racer
         {
             id = roomModel.ConnectionId,
-            tf = player.transform
+            tf = player.transform,
+            vehicleIndex = vehicleIndex
         });
+
         player.transform.position = spownpoint.transform.position;
     }
+
+    // ================= Update =================
 
     private void LateUpdate()
     {
         if (!isStart) return;
-
 
         if (Time.time - lastSendTime >= sendInterval)
         {
             lastSendTime = Time.time;
             SendMoveMessage().Forget();
         }
-        UpdateRanking();
-    }
 
-    private void UpdateRanking()
-    {
-        // 各プレイヤーの進行度を更新
         foreach (var r in racers)
-        {
             r.UpdateProgress(spline);
-        }
 
-        // 進行度（スプライン距離）で順位ソート
-        var sorted = racers
-            .OrderByDescending(r => r.progress)
-            .ToList();
-
-        // 自分の順位
-        int myRank = sorted.FindIndex(r => r.id == roomModel.ConnectionId) + 1;
-
-        rankingText.text = $"{myRank} 位";
+        var sorted = racers.OrderByDescending(r => r.progress).ToList();
+        rankingText.text = $"{sorted.FindIndex(r => r.id == roomModel.ConnectionId) + 1} 位";
     }
-
 
     private async UniTaskVoid SendMoveMessage()
-{
-    var rb = player.GetComponent<Rigidbody>();
-    if (rb == null) return;
-
-    Vector3 currentPos = rb.position;
-    Vector3 velocity = rb.linearVelocity;
-
-    float deltaTime = 0.2f;
-
-    Vector3 predictedPos = currentPos + velocity * deltaTime;
-    Quaternion rot = planeModel.transform.rotation;
-
-    await roomModel.MoveAsync(predictedPos, rot);
-}
-
-    public async void LeaveRoom()
     {
-        string room = roomName.text;
+        var rb = player.GetComponent<Rigidbody>();
+        if (!rb) return;
 
-        await roomModel.LeaveAsync();
+        await roomModel.MoveAsync(
+            rb.position + rb.linearVelocity * 0.2f,
+            planeModel.transform.rotation
+        );
+    }
 
-        bg.SetActive(true);
-        leaveButton.SetActive(false);
-        isStart = false;
-        player.transform.position = Vector3.zero;
-        player.transform.rotation = Quaternion.identity;
+    // ================= Room =================
+
+    public async void CreateRoom()
+    {
+        myself = TextLimitUtil.Clamp(userName.text, 10);
+        await roomModel.JoinAsync(TextLimitUtil.Clamp(roomName.text, 10), myself);
+        SetupRoomUI(roomModel.GetJoinedUser(roomModel.ConnectionId));
         player.transform.position = spownpoint.transform.position;
-    }
-
-    public async UniTask JoinRoom(string room)
-    {
-        myself = userName.text;
-        await roomModel.JoinAsync(room, myself);
-        JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
-        SetupRoomUI(joinedUser);
-        
-        Debug.Log($"Joined room: {room}");
-    }
-
-    private void SetupRoomUI(JoinedUser joinedUser)
-    {
-        Menu.SetActive(true);
-        bg.SetActive(false);
-        leaveButton.SetActive(true);
-        if (joinedUser.IsOwner)
-        {
-            startButton.SetActive(true);
-            readyButton.SetActive(false);
-        }
-        else
-        {
-            startButton.SetActive(false);
-            readyButton.SetActive(true);
-        }
-    }
-
-    public async void UpdateStartButton()
-    {
-        await roomModel.StartGameAsync();
-    }
-
-    public void OnReadyButtonClicked()
-    {
-        roomModel.SendReadyAsync(true).Forget();
-        readyButton.SetActive(false); // 一度押したら非表示
-    }
-
-    // --- Callback ---
-    private void OnJoinedUser(JoinedUser user)
-    {
-        // Skip self
-        if (user.UserName == myself) return;
-
-        if (characterList.ContainsKey(user.ConnectionId))
-            return;
-
-        GameObject characterObject = Instantiate(characterPrefab);
-        characterObject.transform.position = Vector3.zero;
-
-        characterList[user.ConnectionId] = characterObject;
-
-        racers.Add(new Racer
-        {
-            id = user.ConnectionId,
-            tf = characterObject.transform
-        });
-
-        Debug.Log("=== Joined User ===");
-        Debug.Log($"ConnectionId: {user.ConnectionId}");
-        Debug.Log($"UserName: {user.UserName}");
-    }
-
-    // --- Callback ---
-    private void OnLeaveUser(Guid connectionId)
-    {
-        // いない人は退室できない
-        if (!characterList.ContainsKey(connectionId))
-        {
-            return;
-        }
-
-        Destroy(characterList[connectionId]); // 対象のオブジェクトを削除
-        characterList.Remove(connectionId); // リストから対象のデータを削除
-    }
-
-    private void OnLeftUserAll()
-    {
-        // 自分以外のオブジェクトを削除する
-        List<Guid> connectionIdList = characterList.Keys.ToList();
-        foreach (Guid connectionId in connectionIdList)
-        {
-            // 一人分の退室処理
-            OnLeaveUser(connectionId);
-        }
+        player.transform.rotation = Quaternion.identity;
     }
 
     public async void RefreshRoomList()
     {
-        // Add VerticalLayoutGroup if missing
-        if (roomListContent.GetComponent<VerticalLayoutGroup>() == null)
-        {
-            var layout = roomListContent.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 10f;
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-        }
+        foreach (Transform t in roomListContent) Destroy(t.gameObject);
 
-        // Clear buttons
-        foreach (Transform child in roomListContent)
-            Destroy(child.gameObject);
-
-        // Get room list from server
         List<string> rooms = await roomModel.GetRoomListAsync();
         foreach (var room in rooms)
         {
-            var btnObj = Instantiate(roomButtonPrefab, roomListContent);
-            btnObj.GetComponentInChildren<TMP_Text>().text = room;
-            btnObj.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(async () =>
-            {
-                await JoinRoom(room);
-            });
+            var btn = Instantiate(roomButtonPrefab, roomListContent);
+            btn.GetComponentInChildren<TMP_Text>().text = room;
+            btn.GetComponent<Button>().onClick.AddListener(async () => await JoinRoom(room));
         }
     }
 
-    public async void CreateRoom()
+    public async UniTask JoinRoom(string room)
     {
-        myself = userName.text;
-
-        string room = roomName.text;
+        myself = TextLimitUtil.Clamp(userName.text, 10);
         await roomModel.JoinAsync(room, myself);
-
-        JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
-        SetupRoomUI(joinedUser);
-
-        Debug.Log($"Create room: {room}");
-    }
-
-    public void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rot)
-    {
-        if (!characterList.TryGetValue(connectionId, out var character))
-        {
-            Debug.LogWarning($"Character with ConnectionId {connectionId} not found!");
-            return;
-        }
-        character.transform.DOMove(pos, 0.5f);
-        //character.transform.position = pos;
-        character.transform.DORotateQuaternion(rot, 0.5f);
-        //character.transform.rotation = rot;
-    }
-
-    public void OnGameStarted()
-    {
+        SetupRoomUI(roomModel.GetJoinedUser(roomModel.ConnectionId));
         player.transform.position = spownpoint.transform.position;
+        player.transform.rotation = Quaternion.identity;
+    }
+
+    void SetupRoomUI(JoinedUser user)
+    {
+        Menu.SetActive(true);
+        bg.SetActive(false);
+        leaveButton.SetActive(true);
+        startButton.SetActive(user.IsOwner);
+        readyButton.SetActive(!user.IsOwner);
+    }
+
+    public void OnReadyButtonClicked()
+    {
+        roomModel.SendReadyAsync(true, vehicleIndex).Forget();
+        readyButton.SetActive(false);
+    }
+
+    public async void UpdateStartButton()
+    {
+        await roomModel.StartGameAsync(vehicleIndex);
+    }
+
+    public async void LeaveRoom()
+    {
+        await roomModel.LeaveAsync();
+
+        bg.SetActive(true);
+        Menu.SetActive(false);
+        leaveButton.SetActive(false);
+        startButton.SetActive(false);
+        readyButton.SetActive(false);
+        isStart = false;
+
+        foreach (var obj in characterList.Values)
+            Destroy(obj);
+        characterList.Clear();
+        racers.RemoveAll(r => r.id != roomModel.ConnectionId);
+
+        racers[0].tf = player.transform;
+        RefreshRoomList();
+    }
+
+    // ================= Game Start =================
+
+    public void OnGameStarted(List<JoinedUser> users)
+    {
+        foreach (var obj in characterList.Values)
+            Destroy(obj);
+
+        characterList.Clear();
+        racers.Clear();
+
+        foreach (var user in users)
+        {
+            int id = user.VehicleIndex;
+            var prefab = vehicleMap[id];
+
+            if (user.ConnectionId == roomModel.ConnectionId)
+            {
+                SpawnLocalPlayerModel(vehicleIndex);
+                racers.Add(new Racer
+                {
+                    id = user.ConnectionId,
+                    tf = player.transform,
+                    vehicleIndex = id
+                });
+            }
+            else
+            {
+                var obj = Instantiate(prefab, spownpoint.transform.position, Quaternion.identity);
+                characterList[user.ConnectionId] = obj;
+
+                // 名前タグ生成
+                var tag = Instantiate(nameTagPrefab, obj.transform);
+                tag.transform.localPosition = new Vector3(0, 7f, 0); // 機体の上
+
+                var text = tag.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                text.text = user.UserName;   // ネットワークのユーザー名
+
+                racers.Add(new Racer
+                {
+                    id = user.ConnectionId,
+                    tf = obj.transform,
+                    vehicleIndex = id
+                });
+            }
+        }
+
         Menu.SetActive(false);
         startButton.SetActive(false);
         readyButton.SetActive(false);
         StartCoroutine(StartAfterDelay());
     }
-    private IEnumerator StartAfterDelay()
+
+    void SpawnLocalPlayerModel(int vehicleId)
     {
-        yield return new WaitForSeconds(3f);
-        Debug.Log("★ GAME STARTED ★");
+        if (localPlayerModel != null)
+            Destroy(localPlayerModel);
+
+        var prefab = vehicleMap[vehicleId];
+
+        localPlayerModel = Instantiate(
+            prefab,
+            planeModel.transform.position,
+            planeModel.transform.rotation,
+            planeModel.transform
+        );
+    }
+
+    IEnumerator StartAfterDelay()
+    {
+        yield return new WaitForSeconds(3);
         isStart = true;
     }
+
+    // ================= Vehicle Select =================
+
+    public void SelectVehicle(int delta)
+    {
+        var ids = vehicles.Select(v => v.id).OrderBy(x => x).ToList();
+        int cur = ids.IndexOf(vehicleIndex);
+        cur = (cur + delta + ids.Count) % ids.Count;
+        vehicleIndex = ids[cur];
+        UpdateLocalVehiclePreview();
+    }
+
+    void UpdateLocalVehiclePreview()
+    {
+        if (vehiclePreview != null)
+            Destroy(vehiclePreview);
+
+        var prefab = vehicleMap[vehicleIndex];
+
+        vehiclePreview = Instantiate(
+            prefab,
+            vehicleView.position,
+            vehicleView.rotation,
+            vehicleView
+        );
+    }
+
+    // ================= Goal =================
 
     public void SendGoal()
     {
         if (isGoalSent) return;
-
         isGoalSent = true;
         roomModel.GoalAsync().Forget();
     }
 
     public void OnGameGoal(List<Guid> goalOrder)
     {
-        Debug.Log("All Goal");
         isStart = false;
 
-        // ここで順位表示などに使用可能
-        //ShowResult(goalOrder);
-        for (int i = 0; i < goalOrder.Count; i++)
-        {
-            Debug.Log($"{i + 1}位 : {goalOrder[i]}");
-        }
-        userListUI.ShowRanking(
-        goalOrder,
-        id => roomModel.GetJoinedUser(id)
-    );
+        // 順位表示
+        userListUI.ShowRanking(goalOrder, id => roomModel.GetJoinedUser(id));
 
-        StartCoroutine(ReturnToMenuAfterDelay());
+        // メニューへ戻す
+        StartCoroutine(ReturnToMenuAfterGoal());
     }
-
-    private IEnumerator ReturnToMenuAfterDelay()
+    IEnumerator ReturnToMenuAfterGoal()
     {
+        // 結果表示時間
         yield return new WaitForSeconds(3f);
 
-        // UI をロビー状態へ戻す
+        // メニューを表示
         Menu.SetActive(true);
         leaveButton.SetActive(true);
-        JoinedUser joinedUser = roomModel.GetJoinedUser(roomModel.ConnectionId);
-        if (joinedUser.IsOwner)
-        {
-            startButton.SetActive(true);
-            readyButton.SetActive(false);
-        }
-        else
-        {
-            startButton.SetActive(false);
-            readyButton.SetActive(true);
-        }
 
-        // ゴール送信フラグをリセット
+        var user = roomModel.GetJoinedUser(roomModel.ConnectionId);
+        startButton.SetActive(user.IsOwner);
+        readyButton.SetActive(!user.IsOwner);
+
+        // フラグとプレイヤー状態をリセット
         isGoalSent = false;
 
-        // プレイヤー位置リセット
         player.transform.position = spownpoint.transform.position;
         player.transform.rotation = Quaternion.identity;
+    }
+
+
+    public void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rot)
+    {
+        // 自分は動かさない（自分は Rigidbody で制御）
+        if (connectionId == roomModel.ConnectionId)
+            return;
+
+        if (!characterList.TryGetValue(connectionId, out var obj))
+            return;
+
+        obj.transform.DOMove(pos, 0.2f);
+        obj.transform.DORotateQuaternion(rot, 0.2f);
     }
 
 }

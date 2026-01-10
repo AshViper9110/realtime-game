@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Splines;
 using UnityEngine.UI;
 
 public class PrayerCon : MonoBehaviour
@@ -22,12 +23,22 @@ public class PrayerCon : MonoBehaviour
     public float maxRollAngle = 35f;  // 見た目の傾き
     public float rollSmooth = 5f;     // ロール追従速度
 
+    [Header("Spline")]
+    public SplineContainer respawnSpline;
+
+    [Header("Audio")]
+    public AudioSource engineAudio;
+
+    [Header("Audio Settings")]
+    public float minVolume = 0.2f;
+    public float maxVolume = 1.0f;
+
     private float currentSpeed;
     private float currentRoll = 0f;
-    bool isGoal = false;
 
     void Start()
     {
+        engineAudio.volume = 0;
         currentSpeed = (maxSpeed + minSpeed) * 0.5f;
     }
 
@@ -65,9 +76,36 @@ public class PrayerCon : MonoBehaviour
         // ===========================================
         // ※ここで本体の Z軸回転を強制的に 0 に保つ
         // ===========================================
+
+        float speed01 = Mathf.InverseLerp(minSpeed, maxSpeed, currentSpeed);
+        engineAudio.volume = Mathf.Lerp(minVolume, maxVolume, speed01);
+
         Vector3 e = transform.eulerAngles;
         transform.rotation = Quaternion.Euler(e.x, e.y, 0f);
     }
+
+    Vector3 GetNearestPointOnSpline()
+    {
+        float nearestT = 0f;
+        float minDist = float.MaxValue;
+
+        // Splineを0〜1でサンプリング
+        for (int i = 0; i <= 1000; i++)
+        {
+            float t = i / 1000f;
+            Vector3 p = respawnSpline.EvaluatePosition(t);
+            float d = Vector3.SqrMagnitude(transform.position - p);
+
+            if (d < minDist)
+            {
+                minDist = d;
+                nearestT = t;
+            }
+        }
+
+        return respawnSpline.EvaluatePosition(nearestT);
+    }
+
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -75,13 +113,16 @@ public class PrayerCon : MonoBehaviour
         if (((1 << collision.gameObject.layer) & targetLayer) != 0)
         {
             currentSpeed = 5;
-            Debug.Log("特定レイヤーと衝突した！");
+
+            Vector3 warpPos = GetNearestPointOnSpline();
+            transform.position = warpPos;
+
+            Debug.Log("Spline にワープ");
         }
 
-        if (!isGoal && ((1 << collision.gameObject.layer) & goalLayer) != 0)
+        if (collision.gameObject.tag == "Finish")
         {
-            isGoal = true;
-            Debug.Log("ごーる");
+            Debug.Log("ゴール");
             gameDirector.SendGoal();
         }
     }

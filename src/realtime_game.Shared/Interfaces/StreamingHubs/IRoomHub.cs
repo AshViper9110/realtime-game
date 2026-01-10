@@ -18,9 +18,9 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
 
         Task MoveAsync(Vector3 pos, Quaternion rot);
 
-        Task ReadyAsync(bool isReady);
+        Task ReadyAsync(bool isReady, int vehicleIndex);
 
-        Task StartGameAsync();
+        Task StartGameAsync(int vehicleIndex);
 
         Task AllGoalAsync(Guid guid);
     }

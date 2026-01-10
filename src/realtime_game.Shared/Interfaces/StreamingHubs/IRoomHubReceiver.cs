@@ -13,8 +13,9 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         void OnLeave(Guid connectionId);
         void OnMove(Guid connectionId, Vector3 pos, Quaternion rot);
         //void OnLeftUserAll();
-        void OnUserReady(Guid connectionId, bool isReady);
-        void OnGameStarted();
+        void OnUserReady(Guid connectionId, bool isReady, int vehicleIndex);
+        void OnGameStarted(List<JoinedUser> users);
+
         void OnGameGoaled(List<Guid> goalOrder);
 
     }

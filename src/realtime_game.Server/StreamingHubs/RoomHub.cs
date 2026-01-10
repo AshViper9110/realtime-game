@@ -150,6 +150,9 @@ namespace realtime_game.Server.StreamingHubs
 
         public Task MoveAsync(Vector3 pos, Quaternion rot)
         {
+            if (!roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var user))
+                return Task.CompletedTask;
+
             // 位置と回転を更新
             this.roomContext.RoomUserDataList[this.ConnectionId].pos = pos;
             this.roomContext.RoomUserDataList[this.ConnectionId].rot = rot;
@@ -162,17 +165,21 @@ namespace realtime_game.Server.StreamingHubs
             return Task.CompletedTask;
         }
 
-        public Task ReadyAsync(bool isReady)
+        public Task ReadyAsync(bool isReady, int vehicleIndex)
         {
-            this.roomContext.RoomUserDataList[this.ConnectionId].JoinedUser.IsReady = isReady;
+            var user = this.roomContext.RoomUserDataList[this.ConnectionId].JoinedUser;
+            user.IsReady = isReady;
+            user.VehicleIndex = vehicleIndex;
 
-            // オーナーに通知
-            this.roomContext.Group.Except(this.ConnectionId).OnUserReady(this.ConnectionId, isReady);
+            this.roomContext.Group.Except(this.ConnectionId)
+                .OnUserReady(this.ConnectionId, isReady, vehicleIndex);   // ★ 追加
 
             return Task.CompletedTask;
         }
-        public Task StartGameAsync()
+        public Task StartGameAsync(int vehicleIndex)
         {
+            var user1 = this.roomContext.RoomUserDataList[this.ConnectionId].JoinedUser;
+            user1.VehicleIndex = vehicleIndex;
             // ★ユーザーデータ取得
             if (!roomContext.RoomUserDataList.TryGetValue(this.ConnectionId, out var roomUser))
                 return Task.CompletedTask;
@@ -207,8 +214,11 @@ namespace realtime_game.Server.StreamingHubs
             // -----------------------------------------
             Console.WriteLine($"[START GAME] Owner {this.ConnectionId} is starting the game in room {roomNamed}");
 
-            roomContext.Group.All.OnGameStarted();
+            var users = roomContext.RoomUserDataList
+                .Select(x => x.Value.JoinedUser)
+                .ToList();
 
+            roomContext.Group.All.OnGameStarted(users);
             return Task.CompletedTask;
         }
         public Task AllGoalAsync(Guid guid)
@@ -220,6 +230,8 @@ namespace realtime_game.Server.StreamingHubs
             // すでにゴール済みなら何もしない（重複防止）
             if (roomUser.IsGoal)
                 return Task.CompletedTask;
+
+            Console.WriteLine($"[GOAL] {guid}");
 
             // ゴール状態にする
             roomUser.IsGoal = true;

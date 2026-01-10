@@ -20,7 +20,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<Guid> OnLeavedUser { get; set; }
     public Action OnLeftUserAll { get; set; }
     public Action<Vector3, Quaternion> OnMoveUser { get; set; }
-    public Action OnGameStartedReceived { get; set; }
+    public Action<List<JoinedUser>> OnGameStartedReceived { get; set; }
     public Action<Guid,bool> OnReadyUser { get; set; }
     public Action<List<Guid>> OnGoalUser { get; set; }
 
@@ -82,9 +82,9 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         OnLeftUserAll?.Invoke();
     }
 
-    public async UniTask StartGameAsync()
+    public async UniTask StartGameAsync(int vehicleIndex)
     {
-        await roomHub.StartGameAsync();
+        await roomHub.StartGameAsync(vehicleIndex);
         //OnGameStartedReceived?.Invoke();
     }
 
@@ -119,23 +119,24 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         gameDirector.OnMoveCharacter(connectionId, pos, rot);
     }
 
-    public void OnUserReady(Guid connectionId, bool isReady)
+    public void OnUserReady(Guid connectionId, bool isReady, int vehicleIndex)
     {
         if (userTable.TryGetValue(connectionId, out var user))
         {
             user.IsReady = isReady;
-            Debug.Log($"User {user.UserName} ready={isReady}");
+            user.VehicleIndex = vehicleIndex;   // ★ ここが重要
+            Debug.Log($"User {user.UserName} ready={isReady} vehicle={vehicleIndex}");
         }
     }
 
 
     // ★ これがサーバーの OnGameStarted() 受信
-    public void OnGameStarted()
+    public void OnGameStarted(List<JoinedUser> users)
     {
-        Debug.Log("=== Game Started Received ===");
+        foreach (var u in users)
+            userTable[u.ConnectionId] = u;   // 最新値で上書き
 
-        // ★ Unity 側 GameDirector に通知するイベント
-        OnGameStartedReceived?.Invoke();
+        OnGameStartedReceived?.Invoke(users);
     }
     public void OnGameGoaled(List<Guid> goalOrder)
     {
@@ -164,9 +165,9 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         return await roomHub.GetRoomListAsync();
     }
 
-    public async UniTask SendReadyAsync(bool isReady)
+    public async UniTask SendReadyAsync(bool isReady, int vehicleIndex)
     {
-        await roomHub.ReadyAsync(isReady);
+        await roomHub.ReadyAsync(isReady, vehicleIndex);
     }
 
     public async Task MoveAsync(Vector3 pos, Quaternion rot)

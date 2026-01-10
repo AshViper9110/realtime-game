@@ -16,5 +16,7 @@ namespace realtime_game.Server.StreamingHubs
         public bool IsReady { get; set; } = false;
         [Key(4)]
         public bool IsOwner { get; set; } = false; // 新規
+        [Key(5)]
+        public int VehicleIndex { get; set; }
     }
 }
