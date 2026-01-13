@@ -44,7 +44,10 @@ public class PrayerCon : MonoBehaviour
 
     void Update()
     {
-        if (!GameDirector.isStart) return;
+        if (!GameDirector.isStart){
+            engineAudio.volume = 0;
+            return; 
+        }
 
         float inputX = Input.GetAxis("Horizontal");
         float inputY = Input.GetAxis("Vertical");

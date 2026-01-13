@@ -52,13 +52,15 @@ public class GameDirector : MonoBehaviour
     [SerializeField] private SplineContainer spline;
     public GameObject spownpoint;
     public Transform vehicleView;
-    GameObject localPlayerModel;
+    public TextMeshProUGUI countdownText;
 
+    GameObject localPlayerModel;
     GameObject vehiclePreview;
     public int vehicleIndex = 0;     // VehicleID
 
     bool isGoalSent = false;
     string myself;
+    List<GameObject> nameTags = new();
 
     Dictionary<Guid, GameObject> characterList = new();
     float sendInterval = 0.1f;
@@ -294,6 +296,9 @@ public class GameDirector : MonoBehaviour
                 var tag = Instantiate(nameTagPrefab, obj.transform);
                 tag.transform.localPosition = new Vector3(0, 7f, 0); // 機体の上
 
+                tag.SetActive(false);
+                nameTags.Add(tag);
+
                 var text = tag.GetComponentInChildren<TMPro.TextMeshProUGUI>();
                 text.text = user.UserName;   // ネットワークのユーザー名
 
@@ -329,7 +334,22 @@ public class GameDirector : MonoBehaviour
 
     IEnumerator StartAfterDelay()
     {
-        yield return new WaitForSeconds(3);
+        countdownText.gameObject.SetActive(true);
+
+        for (int i = 3; i > 0; i--)
+        {
+            countdownText.text = i.ToString();
+            yield return new WaitForSeconds(1f);
+        }
+
+        countdownText.text = "START";
+        yield return new WaitForSeconds(1f);
+
+        countdownText.gameObject.SetActive(false);
+
+        foreach (var tag in nameTags)
+            tag.SetActive(true);
+
         isStart = true;
     }
 
