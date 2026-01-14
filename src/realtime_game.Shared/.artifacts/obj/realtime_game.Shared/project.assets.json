@@ -580,23 +580,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\nagis\\.nuget\\packages\\": {},
+    "C:\\Users\\student\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
+      "projectUniqueName": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
       "projectName": "realtime_game.Shared",
-      "projectPath": "C:\\Git\\realtime-game\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
-      "packagesPath": "C:\\Users\\nagis\\.nuget\\packages\\",
-      "outputPath": "C:\\Git\\realtime-game\\src\\realtime_game.Shared\\.artifacts\\obj\\realtime_game.Shared\\",
+      "projectPath": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\realtime_game.Shared.csproj",
+      "packagesPath": "C:\\Users\\student\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\student\\Documents\\Git\\realtime-game2\\src\\realtime_game.Shared\\.artifacts\\obj\\realtime_game.Shared\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\nagis\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\student\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -623,7 +623,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "9.0.200"
+      "SdkAnalysisLevel": "9.0.100"
     },
     "frameworks": {
       "net8.0": {
@@ -654,7 +654,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.203/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.101/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

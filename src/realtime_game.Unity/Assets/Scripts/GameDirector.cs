@@ -11,6 +11,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class GameDirector : MonoBehaviour
 {
@@ -46,6 +47,7 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject Menu;
     [SerializeField] GameObject startButton;
     [SerializeField] GameObject readyButton;
+    [SerializeField] GameObject roomCreatePanel;
     [SerializeField] GameObject player;
     [SerializeField] Text rankingText;
     [SerializeField] GameObject nameTagPrefab;
@@ -148,6 +150,7 @@ public class GameDirector : MonoBehaviour
         Menu.SetActive(false);
 
         UpdateLocalVehiclePreview();
+        RefreshRoomList();
 
         racers.Add(new Racer
         {
@@ -198,20 +201,40 @@ public class GameDirector : MonoBehaviour
         SetupRoomUI(roomModel.GetJoinedUser(roomModel.ConnectionId));
         player.transform.position = spownpoint.transform.position;
         player.transform.rotation = Quaternion.identity;
+        roomCreatePanel.SetActive(false);
     }
 
     public async void RefreshRoomList()
     {
-        foreach (Transform t in roomListContent) Destroy(t.gameObject);
+        foreach (Transform t in roomListContent)
+            Destroy(t.gameObject);
 
-        List<string> rooms = await roomModel.GetRoomListAsync();
-        foreach (var room in rooms)
+        var rooms = await roomModel.GetRoomListAsync();
+
+        foreach (var roomName in rooms)
         {
-            var btn = Instantiate(roomButtonPrefab, roomListContent);
-            btn.GetComponentInChildren<TMP_Text>().text = room;
-            btn.GetComponent<Button>().onClick.AddListener(async () => await JoinRoom(room));
+            var item = Instantiate(roomButtonPrefab, roomListContent);
+
+            var roomNameText = item.transform.Find("RoomNameText")
+                .GetComponent<TMP_Text>();
+            var playerCountText = item.transform.Find("PlayerCountText")
+                .GetComponent<TMP_Text>();
+            var joinButton = item.transform.Find("JoinButton")
+                .GetComponent<Button>();
+
+            roomNameText.text = roomName;
+            playerCountText.text = "1 / 4";
+
+            joinButton.onClick.RemoveAllListeners();
+            joinButton.onClick.AddListener(() => JoinRoom(roomName).Forget());
         }
+
+        // レイアウトを強制再計算
+        LayoutRebuilder.ForceRebuildLayoutImmediate(
+            (RectTransform)roomListContent
+        );
     }
+
 
     public async UniTask JoinRoom(string room)
     {
@@ -260,6 +283,16 @@ public class GameDirector : MonoBehaviour
 
         racers[0].tf = player.transform;
         RefreshRoomList();
+    }
+
+    public void RoomCreatePanel(bool active)
+    {
+        roomCreatePanel.SetActive(active);
+    }
+
+    public void BackTitleScene()
+    {
+        SceneManager.LoadScene("TitleScene");
     }
 
     // ================= Game Start =================
