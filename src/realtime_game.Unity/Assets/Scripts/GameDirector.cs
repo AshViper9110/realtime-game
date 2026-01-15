@@ -12,6 +12,7 @@ using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.Rendering;
 
 public class GameDirector : MonoBehaviour
 {
@@ -87,6 +88,18 @@ public class GameDirector : MonoBehaviour
 
             return sb.ToString();
         }
+    }
+
+    public bool CheckString(string text)
+    {
+        bool isNullOrEmpty = string.IsNullOrEmpty(text);
+
+        if (isNullOrEmpty)
+        {
+            Debug.Log("String is null or empty");
+        }
+
+        return isNullOrEmpty;
     }
 
     // ================= Racer =================
@@ -197,6 +210,11 @@ public class GameDirector : MonoBehaviour
     public async void CreateRoom()
     {
         myself = TextLimitUtil.Clamp(userName.text, 10);
+        if (CheckString(roomName.text))
+        {
+            Debug.Log("RoomName empty");
+            return;
+        }
         await roomModel.JoinAsync(TextLimitUtil.Clamp(roomName.text, 10), myself);
         SetupRoomUI(roomModel.GetJoinedUser(roomModel.ConnectionId));
         player.transform.position = spownpoint.transform.position;
@@ -239,6 +257,11 @@ public class GameDirector : MonoBehaviour
     public async UniTask JoinRoom(string room)
     {
         myself = TextLimitUtil.Clamp(userName.text, 10);
+        if (CheckString(userName.text))
+        {
+            Debug.Log("UserName empty");
+            return;
+        }
         await roomModel.JoinAsync(room, myself);
         SetupRoomUI(roomModel.GetJoinedUser(roomModel.ConnectionId));
         player.transform.position = spownpoint.transform.position;
@@ -287,6 +310,11 @@ public class GameDirector : MonoBehaviour
 
     public void RoomCreatePanel(bool active)
     {
+        if (CheckString(userName.text)) 
+        {
+            Debug.Log("UserName empty");
+            return;
+        }
         roomCreatePanel.SetActive(active);
     }
 
