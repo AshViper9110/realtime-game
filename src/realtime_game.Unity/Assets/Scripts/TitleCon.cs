@@ -1,18 +1,23 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections.Generic;
 
 public class TitleCon : MonoBehaviour
 {
-    // ˆÚ“®æ‚ÌƒV[ƒ“–¼
+    // ç§»å‹•å…ˆã®ã‚·ãƒ¼ãƒ³å
     public string gameSceneName = "SampleScene";
+    public GameObject camera;
+    public List<GameObject> PlaneObjects;
+    Dictionary<GameObject, float> baseY = new Dictionary<GameObject, float>();
+    Dictionary<GameObject, Quaternion> baseRot = new Dictionary<GameObject, Quaternion>();
 
-    // uƒXƒ^[ƒgvƒ{ƒ^ƒ“—p
+    // ã€Œã‚¹ã‚¿ãƒ¼ãƒˆã€ãƒœã‚¿ãƒ³ç”¨
     public void OnClickStart()
     {
         SceneManager.LoadScene(gameSceneName);
     }
 
-    // uI—¹vƒ{ƒ^ƒ“—p
+    // ã€Œçµ‚äº†ã€ãƒœã‚¿ãƒ³ç”¨
     public void OnClickQuit()
     {
         Application.Quit();
@@ -21,4 +26,39 @@ public class TitleCon : MonoBehaviour
         UnityEditor.EditorApplication.isPlaying = false;
 #endif
     }
+
+    //Titleé–¢é€£
+
+    void Start()
+    {
+        foreach (GameObject p in PlaneObjects) baseY[p] = p.transform.position.y;
+        foreach (GameObject p in PlaneObjects) baseRot[p] = p.transform.localRotation;
+    }
+    void Update()
+    {
+        camera.transform.Rotate(0f, 1f * Time.deltaTime, 0f, Space.World);
+
+        foreach (GameObject p in PlaneObjects)
+        {
+            float t = Time.time + p.GetInstanceID();
+
+            float pitch = Mathf.Sin(t * 1.2f) * 5f;   // ä¸Šä¸‹
+            float yaw = Mathf.Sin(t * 0.8f) * 1f;   // å·¦å³
+            float roll = Mathf.Sin(t * 1.5f) * 10f;  // å‚¾ãï¼ˆé‡è¦ï¼‰
+
+            p.transform.localRotation =
+                baseRot[p] * Quaternion.Euler(pitch, yaw, roll);
+        }
+
+        foreach (GameObject p in PlaneObjects)
+        {
+            float y = baseY[p]
+                + Mathf.Sin(Time.time * 1.5f + p.GetInstanceID()) * 0.3f;
+
+            Vector3 pos = p.transform.position;
+            pos.y = y;
+            p.transform.position = pos;
+        }
+    }
+
 }

@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "MF/1M++yRCmKL3YxBdODKauUHNrEesmDDlFEeYFc+0k=",
+  "Source": "realtime_game.Server",
+  "BasePath": "_content/realtime_game.Server",
+  "Mode": "Default",
+  "ManifestType": "Publish",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

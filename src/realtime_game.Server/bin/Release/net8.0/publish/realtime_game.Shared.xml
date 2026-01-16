@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>realtime_game.Shared</name>
+    </assembly>
+    <members>
+        <member name="T:realtime_game.Shared.Interfaces.Services.ICalculateService">
+            <summary>
+            初めてのRPCサービス
+            </summary>
+        </member>
+        <member name="M:realtime_game.Shared.Interfaces.Services.ICalculateService.MulAsync(System.Int32,System.Int32)">
+            <summary>
+            乗算
+            </summary>
+            <param name="x"></param>
+            <param name="y"></param>
+            <returns></returns>
+        </member>
+        <member name="T:MessagePack.GeneratedMessagePackResolver">
+            <summary>A MessagePack resolver that uses generated formatters for types in this assembly.</summary>
+        </member>
+        <member name="F:MessagePack.GeneratedMessagePackResolver.Instance">
+            <summary>An instance of this resolver that only returns formatters specifically generated for types in this assembly.</summary>
+        </member>
+    </members>
+</doc>

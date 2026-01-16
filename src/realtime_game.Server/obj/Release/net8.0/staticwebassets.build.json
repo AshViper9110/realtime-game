@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "mPP2OyD4X7fo25NF0UVUweiH7HaCmSodoCF8LJVRW6A=",
+  "Source": "realtime_game.Server",
+  "BasePath": "_content/realtime_game.Server",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}
