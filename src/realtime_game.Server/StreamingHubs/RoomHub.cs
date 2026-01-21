@@ -258,14 +258,29 @@ namespace realtime_game.Server.StreamingHubs
                         .ToList()
                 );
 
-                // 次のゲーム用にリセット
-                roomContext.GoalOrder.Clear();
-                foreach (var u in roomContext.RoomUserDataList.Values)
-                    u.IsGoal = false;
+                ResetGameState();
             }
 
             return Task.CompletedTask;
         }
 
+        public Task ItemObjectAsync(int id)
+        {
+            roomContext.Group.All.OnItemObject(id);
+            return Task.CompletedTask;
+        }
+        private void ResetGameState()
+        {
+            foreach (var user in roomContext.RoomUserDataList.Values)
+            {
+                user.IsGoal = false;
+                user.JoinedUser.IsReady = false;
+
+                user.pos = Vector3.zero;
+                user.rot = Quaternion.identity;
+            }
+
+            roomContext.GoalOrder.Clear();
+        }
     }
 }

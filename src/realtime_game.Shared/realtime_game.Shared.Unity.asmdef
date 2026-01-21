@@ -1,3 +1,7 @@
 {
-    "name": "realtime_game.Shared.Unity"
+  "name": "realtime_game.Shared.Unity",
+  "references": [
+    "MagicOnion.Abstractions"
+  ],
+  "autoReferenced": true
 }

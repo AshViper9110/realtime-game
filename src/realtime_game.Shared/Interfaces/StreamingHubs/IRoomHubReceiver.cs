@@ -15,8 +15,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         //void OnLeftUserAll();
         void OnUserReady(Guid connectionId, bool isReady, int vehicleIndex);
         void OnGameStarted(List<JoinedUser> users);
-
         void OnGameGoaled(List<Guid> goalOrder);
-
+        void OnItemObject(int id);
     }
 }

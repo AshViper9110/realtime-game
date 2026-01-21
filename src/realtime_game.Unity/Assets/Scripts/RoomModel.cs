@@ -24,6 +24,8 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<Guid,bool> OnReadyUser { get; set; }
     public Action<List<Guid>> OnGoalUser { get; set; }
 
+    public Action<int> OnItemObjectUser {  set; get; }
+
     private readonly Dictionary<Guid, JoinedUser> userTable = new();
 
     GameDirector gameDirector;
@@ -173,6 +175,16 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public async Task MoveAsync(Vector3 pos, Quaternion rot)
     {
         await roomHub.MoveAsync(pos, rot);
+    }
+
+    public async UniTask ItemObjectAsync(int id)
+    {
+        await roomHub.ItemObjectAsync(id);
+    }
+
+    public void OnItemObject(int id)
+    {
+        OnItemObjectUser.Invoke(id);
     }
 }
 

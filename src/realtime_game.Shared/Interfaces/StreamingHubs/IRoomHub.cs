@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace realtime_game.Shared.Interfaces.StreamingHubs
 {
-    public interface IRoomHub : IStreamingHub<IRoomHub, IRoomHubReceiver>
+    public partial interface IRoomHub : IStreamingHub<IRoomHub, IRoomHubReceiver>
     {
         Task<Guid> GetConnectionId();
         Task<JoinedUser[]> JoinAsync(string roomName, string userName);
@@ -23,5 +23,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         Task StartGameAsync(int vehicleIndex);
 
         Task AllGoalAsync(Guid guid);
+
+        Task ItemObjectAsync(int id);
     }
 }

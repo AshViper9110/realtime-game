@@ -33,8 +33,17 @@ public class PrayerCon : MonoBehaviour
     public float minVolume = 0.2f;
     public float maxVolume = 1.0f;
 
+    [SerializeField] private float boostPower = 50f;
+    [SerializeField] private float boostDuration = 3f;
+    public int itemIndex = -1;
+
     private float currentSpeed;
     private float currentRoll = 0f;
+
+    private float boostSpeed = 0f;
+    private float boostTimer = 0f;
+
+    public bool isStart = false;
 
     void Start()
     {
@@ -42,12 +51,31 @@ public class PrayerCon : MonoBehaviour
         currentSpeed = (maxSpeed + minSpeed) * 0.5f;
     }
 
+    public void ResetForRace()
+    {
+        currentSpeed = (maxSpeed + minSpeed) * 0.5f;
+        boostSpeed = 0f;
+        boostTimer = 0f;
+        itemIndex = -1;
+        isStart = false;
+
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+    }
+
     void Update()
     {
-        if (!GameDirector.isStart){
+        if (!isStart)
+        {
             engineAudio.volume = 0;
             return; 
         }
+
+        ItemCon();
 
         float inputX = Input.GetAxis("Horizontal");
         float inputY = Input.GetAxis("Vertical");
@@ -67,8 +95,19 @@ public class PrayerCon : MonoBehaviour
         currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
         image.fillAmount = currentSpeed / maxSpeed;
 
+        // --- Boost 処理 ---
+        if (boostTimer > 0f)
+        {
+            boostTimer -= Time.deltaTime;
+            boostSpeed = boostPower;
+        }
+        else
+        {
+            boostSpeed = 0f;
+        }
+
         // --- 前進 ---
-        transform.position += transform.forward * currentSpeed * Time.deltaTime;
+        transform.position += transform.forward * (currentSpeed + boostSpeed) * Time.deltaTime;
 
 
         // --- 見た目だけロール（Model） ---
@@ -107,6 +146,34 @@ public class PrayerCon : MonoBehaviour
         }
 
         return respawnSpline.EvaluatePosition(nearestT);
+    }
+
+    public void ItemCon()
+    {
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            switch (itemIndex)
+            {
+                case 0:
+                    Debug.Log("nitro");
+                    boostTimer = boostDuration;
+                    break;
+                case 1:
+                    Debug.Log("roket");
+                    break;
+                case 2:
+                    Debug.Log("missile");
+                    break;
+                case 3:
+                    Debug.Log("smoke");
+                    break;
+                default:
+                    Debug.Log("No item");
+                    break;
+
+            }
+            itemIndex = -1;
+        }
     }
 
 

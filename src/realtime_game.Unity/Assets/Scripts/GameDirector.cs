@@ -12,7 +12,6 @@ using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using UnityEngine.Rendering;
 
 public class GameDirector : MonoBehaviour
 {
@@ -52,10 +51,20 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject player;
     [SerializeField] Text rankingText;
     [SerializeField] GameObject nameTagPrefab;
-    [SerializeField] private SplineContainer spline;
+    [SerializeField] CameraFollow cameraFollow;
     public GameObject spownpoint;
     public Transform vehicleView;
     public TextMeshProUGUI countdownText;
+    [Header("Item Objects")]
+    public List<ItemObject> itemObjects = new List<ItemObject>();
+    [Header("Item Placement")]
+    [SerializeField] private SplineContainer spline;
+    public GameObject itemPrefab;
+
+    public int laneCount = 4;
+    public float laneSpacing = 2.5f;     // 横方向の間隔
+    public float forwardSpacing = 20f;   // 前方向の間隔
+    public int itemSetCount = 10;
 
     GameObject localPlayerModel;
     GameObject vehiclePreview;
@@ -64,10 +73,52 @@ public class GameDirector : MonoBehaviour
     bool isGoalSent = false;
     string myself;
     List<GameObject> nameTags = new();
-
+    List<Transform> spectatorTargets = new();
+    int spectatorIndex = 0;
     Dictionary<Guid, GameObject> characterList = new();
     float sendInterval = 0.1f;
     float lastSendTime = 0;
+
+    //Camera
+    void BuildSpectatorTargets()
+    {
+        spectatorTargets.Clear();
+
+        foreach (var kv in characterList)
+        {
+            if (kv.Value != null)
+                spectatorTargets.Add(kv.Value.transform);
+        }
+
+        spectatorIndex = 0;
+    }
+
+    public void EnterSpectatorMode()
+    {
+        // 操作を止める
+        isStart = false;
+        player.GetComponent<PrayerCon>().isStart = false;
+
+        BuildSpectatorTargets();
+
+        if (spectatorTargets.Count > 0)
+        {
+            cameraFollow.target = spectatorTargets[0];
+        }
+        else
+        {
+            // 他プレイヤーがいなければ自分
+            cameraFollow.target = player.transform;
+        }
+    }
+
+    void SwitchSpectator(int dir)
+    {
+        spectatorIndex =
+            (spectatorIndex + dir + spectatorTargets.Count) % spectatorTargets.Count;
+
+        cameraFollow.target = spectatorTargets[spectatorIndex];
+    }
 
     public static class TextLimitUtil
     {
@@ -89,6 +140,64 @@ public class GameDirector : MonoBehaviour
             return sb.ToString();
         }
     }
+    public async void OnItemPicked(int instanceId)
+    {
+        var item = itemObjects.Find(i => i.instanceId == instanceId);
+        if (item == null) return;
+
+        Debug.Log($"Item Get type:{item.itemTypeId}");
+        item.SetVisible(false);
+        await roomModel.ItemObjectAsync(item.instanceId);
+        player.GetComponent<PrayerCon>().itemIndex = item.itemTypeId;
+    }
+
+
+    public void SpawnItemsAlongSpline()
+    {
+        itemObjects.Clear();
+        int instanceCounter = 0;
+
+        var splineLength = spline.CalculateLength();
+        float distance = forwardSpacing;
+
+        for (int i = 0; i < itemSetCount; i++)
+        {
+            float t = distance / splineLength;
+
+            Vector3 centerPos = spline.EvaluatePosition(t);
+            Vector3 tangent = ((Vector3)spline.EvaluateTangent(t)).normalized;
+            Vector3 up = ((Vector3)spline.EvaluateUpVector(t)).normalized;
+            Vector3 right = Vector3.Cross(up, tangent).normalized;
+
+            for (int lane = 0; lane < laneCount; lane++)
+            {
+                float offset =
+                    (lane - (laneCount - 1) * 0.5f) * laneSpacing;
+
+                Vector3 pos = centerPos + right * offset;
+                Quaternion rot = Quaternion.LookRotation(tangent, up);
+
+                var go = Instantiate(itemPrefab, pos, rot);
+                var item = go.GetComponent<ItemObject>();
+
+                int randomType = UnityEngine.Random.Range(0, 4);
+                item.Initialize(instanceCounter, randomType, this);
+
+                itemObjects.Add(item);
+                instanceCounter++;
+            }
+
+            distance += forwardSpacing;
+        }
+    }
+
+    public void OnItemObject(int id)
+    {
+        var item = itemObjects.Find(i => i.instanceId == id);
+        if (item == null) return;
+        item.SetVisible(false);
+    }
+
 
     public bool CheckString(string text)
     {
@@ -155,6 +264,7 @@ public class GameDirector : MonoBehaviour
         roomModel.OnLeftUserAll += () => { };
         roomModel.OnGameStartedReceived += OnGameStarted;
         roomModel.OnGoalUser += OnGameGoal;
+        roomModel.OnItemObjectUser += OnItemObject;
 
         startButton.SetActive(false);
         readyButton.SetActive(false);
@@ -189,6 +299,12 @@ public class GameDirector : MonoBehaviour
 
         foreach (var r in racers)
             r.UpdateProgress(spline);
+
+        if (Input.GetKeyDown(KeyCode.LeftArrow))
+            SwitchSpectator(-1);
+
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+            SwitchSpectator(1);
 
         var sorted = racers.OrderByDescending(r => r.progress).ToList();
         rankingText.text = $"{sorted.FindIndex(r => r.id == roomModel.ConnectionId) + 1} 位";
@@ -302,6 +418,7 @@ public class GameDirector : MonoBehaviour
         foreach (var obj in characterList.Values)
             Destroy(obj);
         characterList.Clear();
+        nameTags.Clear();
         racers.RemoveAll(r => r.id != roomModel.ConnectionId);
 
         racers[0].tf = player.transform;
@@ -324,7 +441,6 @@ public class GameDirector : MonoBehaviour
     }
 
     // ================= Game Start =================
-
     public void OnGameStarted(List<JoinedUser> users)
     {
         foreach (var obj in characterList.Values)
@@ -332,6 +448,8 @@ public class GameDirector : MonoBehaviour
 
         characterList.Clear();
         racers.Clear();
+        nameTags.Clear();
+        cameraFollow.target = player.transform;
 
         foreach (var user in users)
         {
@@ -392,10 +510,14 @@ public class GameDirector : MonoBehaviour
             planeModel.transform
         );
     }
-
     IEnumerator StartAfterDelay()
     {
         countdownText.gameObject.SetActive(true);
+
+        // ★ここが重要
+        player.GetComponent<PrayerCon>().ResetForRace();
+
+        SpawnItemsAlongSpline();
 
         for (int i = 3; i > 0; i--)
         {
@@ -412,7 +534,9 @@ public class GameDirector : MonoBehaviour
             tag.SetActive(true);
 
         isStart = true;
+        player.GetComponent<PrayerCon>().isStart = true;
     }
+
 
     // ================= Vehicle Select =================
 
@@ -446,13 +570,14 @@ public class GameDirector : MonoBehaviour
     {
         if (isGoalSent) return;
         isGoalSent = true;
+        EnterSpectatorMode();
         roomModel.GoalAsync().Forget();
     }
 
     public void OnGameGoal(List<Guid> goalOrder)
     {
         isStart = false;
-
+        player.GetComponent<PrayerCon>().isStart = false;
         // 順位表示
         userListUI.ShowRanking(goalOrder, id => roomModel.GetJoinedUser(id));
 
@@ -474,7 +599,7 @@ public class GameDirector : MonoBehaviour
 
         // フラグとプレイヤー状態をリセット
         isGoalSent = false;
-
+        isStart = false;
         player.transform.position = spownpoint.transform.position;
         player.transform.rotation = Quaternion.identity;
     }

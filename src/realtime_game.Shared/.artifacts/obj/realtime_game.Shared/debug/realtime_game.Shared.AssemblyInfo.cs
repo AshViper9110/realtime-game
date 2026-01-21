@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("realtime_game.Shared")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+28033240899ade578b7dfc90e6363ceaa39c083a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+87903e116e1a0e19fb79ee38ccd624aa3bb7f966")]
 [assembly: System.Reflection.AssemblyProductAttribute("realtime_game.Shared")]
 [assembly: System.Reflection.AssemblyTitleAttribute("realtime_game.Shared")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
