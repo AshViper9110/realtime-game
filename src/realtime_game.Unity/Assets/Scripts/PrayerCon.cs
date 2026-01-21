@@ -10,6 +10,7 @@ public class PrayerCon : MonoBehaviour
     public LayerMask targetLayer;
     public LayerMask goalLayer;
     public GameDirector gameDirector;
+    public Joystick joystick;
 
     [Header("Movement Settings")]
     public float yawSpeed = 60f;      // 左右旋回
@@ -45,6 +46,9 @@ public class PrayerCon : MonoBehaviour
 
     public bool isStart = false;
 
+    bool boostHeld = false;
+    bool brakeHeld = false;
+
     void Start()
     {
         engineAudio.volume = 0;
@@ -75,10 +79,13 @@ public class PrayerCon : MonoBehaviour
             return; 
         }
 
-        ItemCon();
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            UseItem();
+        }
 
-        float inputX = Input.GetAxis("Horizontal");
-        float inputY = Input.GetAxis("Vertical");
+        float inputX = GetHorizontal();
+        float inputY = GetVertical();
 
         // --- Yaw（左右旋回） ---
         transform.Rotate(0f, inputX * yawSpeed * Time.deltaTime, 0f, Space.Self);
@@ -86,11 +93,12 @@ public class PrayerCon : MonoBehaviour
         // --- Pitch（上下旋回） ---
         transform.Rotate(inputY * pitchSpeed * Time.deltaTime, 0f, 0f, Space.Self);
 
-        // --- Shift で加速 / Space で減速 ---
-        if (Input.GetKey(KeyCode.LeftShift))
-            currentSpeed -= acceleration * Time.deltaTime;
-        if (Input.GetKey(KeyCode.Space))
-            currentSpeed += deceleration * Time.deltaTime;
+        // --- 加速 / 減速 ---
+        if (GetBoostInput())
+            currentSpeed += acceleration * Time.deltaTime;
+
+        if (GetBrakeInput())
+            currentSpeed -= deceleration * Time.deltaTime;
 
         currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
         image.fillAmount = currentSpeed / maxSpeed;
@@ -126,6 +134,66 @@ public class PrayerCon : MonoBehaviour
         transform.rotation = Quaternion.Euler(e.x, e.y, 0f);
     }
 
+    float GetHorizontal()
+    {
+        if (joystick != null)
+            return joystick.Horizontal;
+
+        return Input.GetAxis("Horizontal");
+    }
+
+    float GetVertical()
+    {
+        if (joystick != null)
+            return joystick.Vertical;
+
+        return Input.GetAxis("Vertical");
+    }
+
+    bool GetBoostInput()
+    {
+        // UI Button（押している間）
+        if (boostHeld)
+            return true;
+
+        // キーボード
+        return Input.GetKey(KeyCode.Space);
+    }
+
+    bool GetBrakeInput()
+    {
+        if (brakeHeld)
+            return true;
+
+
+        return Input.GetKey(KeyCode.LeftShift);
+    }
+
+
+    // ===== Boost =====
+    public void BoostDown()
+    {
+        boostHeld = true;
+    }
+
+    public void BoostUp()
+    {
+        boostHeld = false;
+    }
+
+    // ===== Brake =====
+    public void BrakeDown()
+    {
+        brakeHeld = true;
+    }
+
+    public void BrakeUp()
+    {
+        brakeHeld = false;
+    }
+
+
+
     Vector3 GetNearestPointOnSpline()
     {
         float nearestT = 0f;
@@ -148,32 +216,24 @@ public class PrayerCon : MonoBehaviour
         return respawnSpline.EvaluatePosition(nearestT);
     }
 
-    public void ItemCon()
+    public void UseItem()
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        switch (itemIndex)
         {
-            switch (itemIndex)
-            {
-                case 0:
-                    Debug.Log("nitro");
-                    boostTimer = boostDuration;
-                    break;
-                case 1:
-                    Debug.Log("roket");
-                    break;
-                case 2:
-                    Debug.Log("missile");
-                    break;
-                case 3:
-                    Debug.Log("smoke");
-                    break;
-                default:
-                    Debug.Log("No item");
-                    break;
-
-            }
-            itemIndex = -1;
+            case 0:
+                boostTimer = boostDuration;
+                break;
+            case 1:
+                Debug.Log("rocket");
+                break;
+            case 2:
+                Debug.Log("missile");
+                break;
+            case 3:
+                Debug.Log("smoke");
+                break;
         }
+        itemIndex = -1;
     }
 
 
