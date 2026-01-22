@@ -52,6 +52,7 @@ public class GameDirector : MonoBehaviour
     [SerializeField] Text rankingText;
     [SerializeField] GameObject nameTagPrefab;
     [SerializeField] CameraFollow cameraFollow;
+    [SerializeField] TMP_Text logText;
     public GameObject spownpoint;
     public Transform vehicleView;
     public TextMeshProUGUI countdownText;
@@ -78,6 +79,25 @@ public class GameDirector : MonoBehaviour
     Dictionary<Guid, GameObject> characterList = new();
     float sendInterval = 0.1f;
     float lastSendTime = 0;
+
+    private const int MaxLines = 6;
+    private readonly Queue<string> logQueue = new Queue<string>();
+
+    //Log
+    public void LogText(string text)
+    {
+        // 新しいログを追加
+        logQueue.Enqueue(text);
+
+        // 6行を超えたら古いものを削除
+        while (logQueue.Count > MaxLines)
+        {
+            logQueue.Dequeue();
+        }
+
+        // 表示更新
+        logText.text = string.Join("\n", logQueue);
+    }
 
     //Camera
     void BuildSpectatorTargets()
@@ -198,7 +218,6 @@ public class GameDirector : MonoBehaviour
         item.SetVisible(false);
     }
 
-
     public bool CheckString(string text)
     {
         bool isNullOrEmpty = string.IsNullOrEmpty(text);
@@ -254,6 +273,7 @@ public class GameDirector : MonoBehaviour
 
     async void Start()
     {
+        bg.SetActive(true);
         roomModel = GetComponent<RoomModel>();
         await roomModel.ConnectAsync();
         userModel = GetComponent<UserModel>();
@@ -268,7 +288,6 @@ public class GameDirector : MonoBehaviour
 
         startButton.SetActive(false);
         readyButton.SetActive(false);
-        bg.SetActive(true);
         leaveButton.SetActive(false);
         Menu.SetActive(false);
 

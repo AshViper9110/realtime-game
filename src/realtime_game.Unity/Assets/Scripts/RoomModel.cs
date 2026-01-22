@@ -42,13 +42,16 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     // ============================
     public async UniTask ConnectAsync()
     {
+        gameDirector = GetComponent<GameDirector>();
         Debug.Log("Connecting to server...");
+        gameDirector.LogText("Connecting to server...");
 
         channel = GrpcChannelx.ForAddress(ServerURL);
         roomHub = await StreamingHubClient.ConnectAsync<IRoomHub, IRoomHubReceiver>(channel, this);
         this.ConnectionId = await roomHub.GetConnectionId();
 
         Debug.Log($"Connected! CID={this.ConnectionId}");
+        gameDirector.LogText($"Connected! CID={this.ConnectionId}");
     }
 
     public async UniTask DisconnectAsync()
