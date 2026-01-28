@@ -1,7 +1,8 @@
 {
   "name": "realtime_game.Shared.Unity",
   "references": [
-    "MagicOnion.Abstractions"
+    "MagicOnion.Abstractions",
+    "MagicOnion.Client"
   ],
   "autoReferenced": true
 }
