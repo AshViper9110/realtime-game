@@ -5,6 +5,9 @@ public class ItemObject : MonoBehaviour
     public int instanceId;   // 一意
     public int itemTypeId;   // 0〜3
     GameDirector director;
+    [Header("Rotation")]
+    [SerializeField]
+    private float rotateSpeed = 90f;
 
     public void Initialize(int instanceId, int itemTypeId, GameDirector gd)
     {
@@ -22,5 +25,10 @@ public class ItemObject : MonoBehaviour
     public void SetVisible(bool visible)
     {
         gameObject.SetActive(visible);
+    }
+    void Update()
+    {
+        // Y軸を一定速度で回転
+        transform.Rotate(0f, rotateSpeed * Time.deltaTime, 0f, Space.World);
     }
 }

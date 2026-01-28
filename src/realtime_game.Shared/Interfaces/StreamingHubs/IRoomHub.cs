@@ -25,5 +25,7 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         Task AllGoalAsync(Guid guid);
 
         Task ItemObjectAsync(int id);
+
+        Task ShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId);
     }
 }

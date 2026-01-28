@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("realtime_game.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9a0a531acfa7544e91a6782b95d6235e3bfdf605")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+34b584258884362cea0f36e7077ff87c0192f0c4")]
 [assembly: System.Reflection.AssemblyProductAttribute("realtime_game.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("realtime_game.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

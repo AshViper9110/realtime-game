@@ -48,6 +48,7 @@ public class PrayerCon : MonoBehaviour
 
     bool boostHeld = false;
     bool brakeHeld = false;
+    int shotCount = 0;
 
     void Start()
     {
@@ -218,6 +219,7 @@ public class PrayerCon : MonoBehaviour
 
     public void UseItem()
     {
+        Vector3 pos = new Vector3(transform.position.x, transform.position.y - 1, transform.position.z);
         switch (itemIndex)
         {
             case 0:
@@ -225,15 +227,27 @@ public class PrayerCon : MonoBehaviour
                 break;
             case 1:
                 Debug.Log("rocket");
+                
+                gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
                 break;
             case 2:
-                Debug.Log("missile");
+                Debug.Log("rockets");
+                gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
+                shotCount++;
                 break;
             case 3:
                 Debug.Log("smoke");
+                gameDirector.ShotItem(pos, transform.rotation, new Vector3(0, 0, 0), 3);
                 break;
         }
-        itemIndex = -1;
+        if (itemIndex != 2)
+        {
+            itemIndex = -1;
+        }
+        if (shotCount > 2)
+        {
+            itemIndex = -1;
+        }
     }
 
 
@@ -254,6 +268,12 @@ public class PrayerCon : MonoBehaviour
         {
             Debug.Log("ゴール");
             gameDirector.SendGoal();
+        }
+
+        if (collision.gameObject.tag == "Missile")
+        {
+            Debug.Log("Missile Hit");
+            currentSpeed = 5;
         }
     }
 }

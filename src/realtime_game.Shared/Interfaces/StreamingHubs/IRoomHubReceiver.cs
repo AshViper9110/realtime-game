@@ -17,5 +17,6 @@ namespace realtime_game.Shared.Interfaces.StreamingHubs
         void OnGameStarted(List<JoinedUser> users);
         void OnGameGoaled(List<Guid> goalOrder);
         void OnItemObject(int id);
+        void OnShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId);
     }
 }

@@ -282,5 +282,11 @@ namespace realtime_game.Server.StreamingHubs
 
             roomContext.GoalOrder.Clear();
         }
+
+        public Task ShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId)
+        {
+            this.roomContext.Group.Except(this.ConnectionId).OnShotItem(pos, rot, vel, itemId);
+            return Task.CompletedTask;
+        }
     }
 }

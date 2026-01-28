@@ -23,6 +23,7 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public Action<List<JoinedUser>> OnGameStartedReceived { get; set; }
     public Action<Guid,bool> OnReadyUser { get; set; }
     public Action<List<Guid>> OnGoalUser { get; set; }
+    public Action<Vector3, Quaternion, Vector3,int> OnShotItemUser { get; set; }
 
     public Action<int> OnItemObjectUser {  set; get; }
 
@@ -188,6 +189,16 @@ public class RoomModel : BaseModel, IRoomHubReceiver
     public void OnItemObject(int id)
     {
         OnItemObjectUser.Invoke(id);
+    }
+
+    public void OnShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId)
+    {
+        OnShotItemUser.Invoke(pos, rot, vel, itemId);
+    }
+
+    public async UniTask ShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId)
+    {
+        await roomHub.ShotItem(pos, rot, vel, itemId);
     }
 }
 

@@ -53,6 +53,7 @@ public class GameDirector : MonoBehaviour
     [SerializeField] GameObject nameTagPrefab;
     [SerializeField] CameraFollow cameraFollow;
     [SerializeField] TMP_Text logText;
+    public GameObject missilePrefab;
     public GameObject spownpoint;
     public Transform vehicleView;
     public TextMeshProUGUI countdownText;
@@ -230,6 +231,25 @@ public class GameDirector : MonoBehaviour
         return isNullOrEmpty;
     }
 
+    public void OnShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId)
+    {
+        Debug.Log($"Item Shot");
+        if (itemId != 3)
+        {
+            var missile = Instantiate(missilePrefab, pos, rot);
+        }
+    }
+
+    public async void ShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId)
+    {
+        Debug.Log($"My Shot");
+        if (itemId != 3)
+        {
+            var missile = Instantiate(missilePrefab, pos, rot);
+        }
+        await roomModel.ShotItem(pos, rot, vel, itemId);
+    }
+
     // ================= Racer =================
 
     private List<Racer> racers = new();
@@ -285,6 +305,7 @@ public class GameDirector : MonoBehaviour
         roomModel.OnGameStartedReceived += OnGameStarted;
         roomModel.OnGoalUser += OnGameGoal;
         roomModel.OnItemObjectUser += OnItemObject;
+        roomModel.OnShotItemUser += OnShotItem;
 
         startButton.SetActive(false);
         readyButton.SetActive(false);
@@ -622,8 +643,6 @@ public class GameDirector : MonoBehaviour
         player.transform.position = spownpoint.transform.position;
         player.transform.rotation = Quaternion.identity;
     }
-
-
     public void OnMoveCharacter(Guid connectionId, Vector3 pos, Quaternion rot)
     {
         // 自分は動かさない（自分は Rigidbody で制御）
