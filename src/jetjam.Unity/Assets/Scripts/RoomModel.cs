@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using Grpc.Core;
 using Grpc.Net.Client;
 using MagicOnion.Client;
 using realtime_game.Server.StreamingHubs;
@@ -47,16 +48,40 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         Debug.Log("Connecting to server...");
         gameDirector.LogText("Connecting to server...");
 
-        channel = GrpcChannelProvider.GetChannel();
-        this.roomHub = await StreamingHubClient.ConnectAsync<IRoomHub, IRoomHubReceiver>(
-            channel,
-            this,
-            option: commonCallOptions
-        );
-        this.ConnectionId = await roomHub.GetConnectionId();
+        try
+        {
+            channel = GrpcChannelProvider.GetChannel();
 
-        Debug.Log($"Connected! CID={this.ConnectionId}");
-        gameDirector.LogText($"Connected! CID={this.ConnectionId}");
+            this.roomHub = await StreamingHubClient.ConnectAsync<
+                IRoomHub,
+                IRoomHubReceiver
+            >(
+                channel,
+                this,
+                option: commonCallOptions
+            );
+
+            this.ConnectionId = await roomHub.GetConnectionId();
+
+            Debug.Log($"Connected! CID={this.ConnectionId}");
+            gameDirector.LogText($"Connected! CID={this.ConnectionId}");
+        }
+        catch (RpcException ex)
+        {
+            // gRPC レベルのエラー（今回ほぼ全部ここ）
+            Debug.LogError($"[gRPC Error] {ex.Status.StatusCode}: {ex.Status.Detail}");
+            gameDirector.LogText(
+                $"[gRPC Error]\nCode: {ex.Status.StatusCode}\nDetail: {ex.Status.Detail}"
+            );
+        }
+        catch (Exception ex)
+        {
+            // 想定外（TLS / ネットワーク / Null など）
+            Debug.LogError(ex);
+            gameDirector.LogText(
+                $"[Exception]\n{ex.GetType().Name}\n{ex.Message}"
+            );
+        }
     }
 
     public async UniTask DisconnectAsync()
