@@ -150,7 +150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17eba2f0ae26f654492c7d5d26d42558, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 30
+  speed: 50
   targetTag: Player
   targetLayer:
     serializedVersion: 2

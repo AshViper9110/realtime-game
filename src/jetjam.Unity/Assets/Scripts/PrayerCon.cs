@@ -5,7 +5,7 @@ using UnityEngine.UI;
 public class PrayerCon : MonoBehaviour
 {
     [Header("References")]
-    public Transform planeModel;  // 見た目用オブジェクト
+    public Transform planeModel;
     public Image image;
     public LayerMask targetLayer;
     public LayerMask goalLayer;
@@ -13,98 +13,80 @@ public class PrayerCon : MonoBehaviour
     public Joystick joystick;
 
     [Header("Movement Settings")]
-    public float yawSpeed = 60f;      // 左右旋回
-    public float pitchSpeed = 45f;    // 上下
-    public float acceleration = 20f;  // 加速量
-    public float deceleration = 20f;  // 減速量
-    public float maxSpeed = 30f;      // 最大速度
-    public float minSpeed = 1f;      // 最低速度
+    public float yawSpeed = 60f;
+    public float pitchSpeed = 45f;
+    public float acceleration = 20f;
+    public float deceleration = 20f;
+    public float maxSpeed = 30f;
+    public float minSpeed = 1f;
 
-    [Header("Visual Roll Settings")]
-    public float maxRollAngle = 35f;  // 見た目の傾き
-    public float rollSmooth = 5f;     // ロール追従速度
+    [Header("Visual Roll")]
+    public float maxRollAngle = 35f;
+    public float rollSmooth = 5f;
 
     [Header("Spline")]
     public SplineContainer respawnSpline;
 
     [Header("Audio")]
     public AudioSource engineAudio;
-
-    [Header("Audio Settings")]
     public float minVolume = 0.2f;
     public float maxVolume = 1.0f;
 
+    [Header("Boost")]
     [SerializeField] private float boostPower = 50f;
     [SerializeField] private float boostDuration = 3f;
+
     public int itemIndex = -1;
-
-    private float currentSpeed;
-    private float currentRoll = 0f;
-
-    private float boostSpeed = 0f;
-    private float boostTimer = 0f;
-
     public bool isStart = false;
 
-    bool boostHeld = false;
-    bool brakeHeld = false;
-    int shotCount = 0;
+    float currentSpeed;
+    float currentRoll;
+    float boostSpeed;
+    float boostTimer;
+
+    bool boostHeld;
+    bool brakeHeld;
+    int shotCount;
+
+    // =============================
+    // Unity Lifecycle
+    // =============================
 
     void Start()
     {
-        engineAudio.volume = 0;
+        engineAudio.volume = 0f;
         currentSpeed = (maxSpeed + minSpeed) * 0.5f;
-    }
-
-    public void ResetForRace()
-    {
-        currentSpeed = (maxSpeed + minSpeed) * 0.5f;
-        boostSpeed = 0f;
-        boostTimer = 0f;
-        itemIndex = -1;
-        isStart = false;
-
-        var rb = GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-        }
     }
 
     void Update()
     {
         if (!isStart)
         {
-            engineAudio.volume = 0;
-            return; 
+            engineAudio.volume = 0f;
+            return;
         }
 
-        if (Input.GetKeyDown(KeyCode.E))
-        {
+        if (IsUseItemPressed())
             UseItem();
-        }
 
-        float inputX = GetHorizontal();
-        float inputY = GetVertical();
+        float inputX = GetMoveX();
+        float inputY = GetMoveY();
 
-        // --- Yaw（左右旋回） ---
+        // Rotation
         transform.Rotate(0f, inputX * yawSpeed * Time.deltaTime, 0f, Space.Self);
-
-        // --- Pitch（上下旋回） ---
         transform.Rotate(inputY * pitchSpeed * Time.deltaTime, 0f, 0f, Space.Self);
 
-        // --- 加速 / 減速 ---
-        if (GetBoostInput())
+        // Speed
+        if (IsBoost())
             currentSpeed += acceleration * Time.deltaTime;
 
-        if (GetBrakeInput())
+        if (IsBrake())
             currentSpeed -= deceleration * Time.deltaTime;
 
         currentSpeed = Mathf.Clamp(currentSpeed, minSpeed, maxSpeed);
         image.fillAmount = currentSpeed / maxSpeed;
 
-        // --- Boost 処理 ---
+        // Boost
         if (boostTimer > 0f)
         {
             boostTimer -= Time.deltaTime;
@@ -115,97 +97,137 @@ public class PrayerCon : MonoBehaviour
             boostSpeed = 0f;
         }
 
-        // --- 前進 ---
+        // Move
         transform.position += transform.forward * (currentSpeed + boostSpeed) * Time.deltaTime;
 
-
-        // --- 見た目だけロール（Model） ---
+        // Visual Roll
         float targetRoll = -inputX * maxRollAngle;
         currentRoll = Mathf.Lerp(currentRoll, targetRoll, Time.deltaTime * rollSmooth);
         planeModel.localRotation = Quaternion.Euler(0, 0, currentRoll);
 
-        // ===========================================
-        // ※ここで本体の Z軸回転を強制的に 0 に保つ
-        // ===========================================
-
-        float speed01 = Mathf.InverseLerp(minSpeed, maxSpeed, currentSpeed);
-        engineAudio.volume = Mathf.Lerp(minVolume, maxVolume, speed01);
-
+        // Z固定
         Vector3 e = transform.eulerAngles;
         transform.rotation = Quaternion.Euler(e.x, e.y, 0f);
+
+        // Audio
+        float speed01 = Mathf.InverseLerp(minSpeed, maxSpeed, currentSpeed);
+        engineAudio.volume = Mathf.Lerp(minVolume, maxVolume, speed01);
     }
 
-    float GetHorizontal()
+    // =============================
+    // Input (Unified)
+    // =============================
+
+    float GetMoveX()
     {
-        if (joystick != null)
-            return joystick.Horizontal;
-
-        return Input.GetAxis("Horizontal");
+        float pc = Input.GetAxis("Horizontal");
+        float touch = joystick != null ? joystick.Horizontal : 0f;
+        return Mathf.Abs(touch) > Mathf.Abs(pc) ? touch : pc;
     }
 
-    float GetVertical()
+    float GetMoveY()
     {
-        if (joystick != null)
-            return joystick.Vertical;
-
-        return Input.GetAxis("Vertical");
+        float pc = Input.GetAxis("Vertical");
+        float touch = joystick != null ? joystick.Vertical : 0f;
+        return Mathf.Abs(touch) > Mathf.Abs(pc) ? touch : pc;
     }
 
-    bool GetBoostInput()
+    bool IsBoost()
     {
-        // UI Button（押している間）
-        if (boostHeld)
-            return true;
-
-        // キーボード
-        return Input.GetKey(KeyCode.Space);
+        return boostHeld || Input.GetKey(KeyCode.Space);
     }
 
-    bool GetBrakeInput()
+    bool IsBrake()
     {
-        if (brakeHeld)
-            return true;
-
-
-        return Input.GetKey(KeyCode.LeftShift);
+        return brakeHeld || Input.GetKey(KeyCode.LeftShift);
     }
 
-
-    // ===== Boost =====
-    public void BoostDown()
+    bool IsUseItemPressed()
     {
-        boostHeld = true;
+        return Input.GetKeyDown(KeyCode.E);
     }
 
-    public void BoostUp()
+    // =============================
+    // UI Button Callbacks
+    // =============================
+
+    public void BoostDown() => boostHeld = true;
+    public void BoostUp() => boostHeld = false;
+
+    public void BrakeDown() => brakeHeld = true;
+    public void BrakeUp() => brakeHeld = false;
+
+    public void UseItemButton() => UseItem();
+
+    // =============================
+    // Item
+    // =============================
+
+    public void UseItem()
     {
-        boostHeld = false;
+        if (itemIndex < 0) return;
+
+        Vector3 pos = transform.position + Vector3.down;
+
+        switch (itemIndex)
+        {
+            case 0:
+                boostTimer = boostDuration;
+                gameDirector.ShotItem(pos, transform.rotation, Vector3.right * 5, 0);
+                break;
+
+            case 1:
+                gameDirector.ShotItem(pos, transform.rotation, Vector3.right * 5, 1);
+                break;
+
+            case 2:
+                shotCount++;
+                int type = shotCount > 2 ? 2 : 1;
+                gameDirector.ShotItem(pos, transform.rotation, Vector3.right * 5, type);
+                if (shotCount > 2) itemIndex = -1;
+                return;
+
+            case 3:
+                gameDirector.ShotItem(pos, transform.rotation, Vector3.zero, 3);
+                break;
+        }
+
+        itemIndex = -1;
     }
 
-    // ===== Brake =====
-    public void BrakeDown()
+    // =============================
+    // Collision
+    // =============================
+
+    private void OnCollisionEnter(Collision collision)
     {
-        brakeHeld = true;
+        if (((1 << collision.gameObject.layer) & targetLayer) != 0)
+        {
+            currentSpeed = 5f;
+            transform.position = GetNearestPointOnSpline();
+        }
+
+        if (collision.gameObject.tag == "Finish")
+            gameDirector.SendGoal();
+
+        if (collision.gameObject.tag == "Missile")
+            currentSpeed = 5f;
     }
 
-    public void BrakeUp()
-    {
-        brakeHeld = false;
-    }
-
-
+    // =============================
+    // Utility
+    // =============================
 
     Vector3 GetNearestPointOnSpline()
     {
         float nearestT = 0f;
         float minDist = float.MaxValue;
 
-        // Splineを0〜1でサンプリング
         for (int i = 0; i <= 1000; i++)
         {
             float t = i / 1000f;
             Vector3 p = respawnSpline.EvaluatePosition(t);
-            float d = Vector3.SqrMagnitude(transform.position - p);
+            float d = (transform.position - p).sqrMagnitude;
 
             if (d < minDist)
             {
@@ -213,74 +235,22 @@ public class PrayerCon : MonoBehaviour
                 nearestT = t;
             }
         }
-
         return respawnSpline.EvaluatePosition(nearestT);
     }
 
-    public void UseItem()
+    public void ResetForRace()
     {
-        Vector3 pos = new Vector3(transform.position.x, transform.position.y - 1, transform.position.z);
-        switch (itemIndex)
-        {
-            case 0:
-                boostTimer = boostDuration;
-                gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 0);
-                break;
-            case 1:
-                Debug.Log("rocket");
-                gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
-                break;
-            case 2:
-                Debug.Log("rockets");
-                shotCount++;
-                if (shotCount > 2) 
-                {
-                    gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 2);
-                }
-                else
-                {
-                    gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
-                }
-                break;
-            case 3:
-                Debug.Log("smoke");
-                gameDirector.ShotItem(pos, transform.rotation, new Vector3(0, 0, 0), 3);
-                break;
-        }
-        if (itemIndex != 2)
-        {
-            itemIndex = -1;
-        }
-        if (shotCount > 2)
-        {
-            itemIndex = -1;
-        }
-    }
+        currentSpeed = (maxSpeed + minSpeed) * 0.5f;
+        boostSpeed = 0f;
+        boostTimer = 0f;
+        itemIndex = -1;
+        shotCount = 0;
+        isStart = false;
 
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        // 衝突相手の layer が targetLayer に含まれているか判定
-        if (((1 << collision.gameObject.layer) & targetLayer) != 0)
+        if (TryGetComponent(out Rigidbody rb))
         {
-            currentSpeed = 5;
-
-            Vector3 warpPos = GetNearestPointOnSpline();
-            transform.position = warpPos;
-
-            Debug.Log("Spline にワープ");
-        }
-
-        if (collision.gameObject.tag == "Finish")
-        {
-            Debug.Log("ゴール");
-            gameDirector.SendGoal();
-        }
-
-        if (collision.gameObject.tag == "Missile")
-        {
-            Debug.Log("Missile Hit");
-            currentSpeed = 5;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
         }
     }
 }

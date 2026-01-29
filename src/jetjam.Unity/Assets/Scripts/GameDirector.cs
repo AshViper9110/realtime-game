@@ -12,7 +12,6 @@ using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using static UnityEditor.Progress;
 
 public class GameDirector : MonoBehaviour
 {
@@ -58,7 +57,7 @@ public class GameDirector : MonoBehaviour
     public Transform vehicleView;
     public TextMeshProUGUI countdownText;
     [Header("Item Objects")]
-    public List<ItemObject> itemObjects = new List<ItemObject>();
+    public List<GameObject> itemObjects = new List<GameObject>();
     [Header("Item Placement")]
     [SerializeField] private SplineContainer spline;
     public GameObject itemPrefab;
@@ -164,10 +163,14 @@ public class GameDirector : MonoBehaviour
     }
     public async void OnItemPicked(int instanceId)
     {
-        var item = itemObjects.Find(i => i.instanceId == instanceId);
+        var item = itemObjects.Find(i => i.GetComponent<ItemObject>().instanceId == instanceId).GetComponent<ItemObject>();
         if (item == null) return;
 
         Debug.Log($"Item Get type:{item.itemTypeId}");
+        foreach (var item1 in haveItem)
+        {
+            item1.SetActive(false);
+        }
         item.SetVisible(false);
         await roomModel.ItemObjectAsync(item.instanceId);
         player.GetComponent<PrayerCon>().itemIndex = item.itemTypeId;
@@ -177,6 +180,10 @@ public class GameDirector : MonoBehaviour
 
     public void SpawnItemsAlongSpline()
     {
+        foreach (var item in itemObjects)
+        {
+            Destroy(item);
+        }
         itemObjects.Clear();
         int instanceCounter = 0;
 
@@ -201,12 +208,11 @@ public class GameDirector : MonoBehaviour
                 Quaternion rot = Quaternion.LookRotation(tangent, up);
 
                 var go = Instantiate(itemPrefab, pos, rot);
-                var item = go.GetComponent<ItemObject>();
 
                 int randomType = UnityEngine.Random.Range(0, 3);
-                item.Initialize(instanceCounter, randomType, this);
+                go.GetComponent<ItemObject>().Initialize(instanceCounter, randomType, this);
 
-                itemObjects.Add(item);
+                itemObjects.Add(go);
                 instanceCounter++;
             }
 
@@ -216,7 +222,7 @@ public class GameDirector : MonoBehaviour
 
     public void OnItemObject(int id)
     {
-        var item = itemObjects.Find(i => i.instanceId == id);
+        var item = itemObjects.Find(i => i.GetComponent<ItemObject>().instanceId == id).GetComponent<ItemObject>();
         if (item == null) return;
         item.SetVisible(false);
     }
@@ -491,6 +497,11 @@ public class GameDirector : MonoBehaviour
     // ================= Game Start =================
     public void OnGameStarted(List<JoinedUser> users)
     {
+        foreach (var item in itemObjects)
+        {
+            Destroy(item);
+        }
+        itemObjects.Clear();
         foreach (var obj in characterList.Values)
             Destroy(obj);
 

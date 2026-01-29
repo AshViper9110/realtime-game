@@ -16,11 +16,15 @@ public class MissileScript : MonoBehaviour
     void Start()
     {
         rb.linearVelocity = transform.forward * speed;
+
+        // š 5•bŒã‚Éíœ
+        Destroy(gameObject, 5f);
     }
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag(targetTag) || ((1 << other.gameObject.layer) & targetLayer) != 0)
+        if (other.CompareTag(targetTag) ||
+            ((1 << other.gameObject.layer) & targetLayer) != 0)
         {
             Destroy(gameObject);
         }
