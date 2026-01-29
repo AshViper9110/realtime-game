@@ -1,5 +1,5 @@
 using Cysharp.Threading.Tasks;
-using MagicOnion;
+using Grpc.Net.Client;
 using MagicOnion.Client;
 using realtime_game.Server.StreamingHubs;
 using realtime_game.Shared.Interfaces.StreamingHubs;
@@ -11,7 +11,7 @@ using UnityEngine;
 
 public class RoomModel : BaseModel, IRoomHubReceiver
 {
-    private GrpcChannelx channel;
+    private GrpcChannel channel;
     public IRoomHub roomHub;
 
     public Guid ConnectionId { get; set; }
@@ -47,8 +47,12 @@ public class RoomModel : BaseModel, IRoomHubReceiver
         Debug.Log("Connecting to server...");
         gameDirector.LogText("Connecting to server...");
 
-        channel = GrpcChannelx.ForAddress(ServerURL);
-        roomHub = await StreamingHubClient.ConnectAsync<IRoomHub, IRoomHubReceiver>(channel, this);
+        channel = GrpcChannelProvider.GetChannel();
+        this.roomHub = await StreamingHubClient.ConnectAsync<IRoomHub, IRoomHubReceiver>(
+            channel,
+            this,
+            option: commonCallOptions
+        );
         this.ConnectionId = await roomHub.GetConnectionId();
 
         Debug.Log($"Connected! CID={this.ConnectionId}");

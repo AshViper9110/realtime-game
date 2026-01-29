@@ -224,16 +224,23 @@ public class PrayerCon : MonoBehaviour
         {
             case 0:
                 boostTimer = boostDuration;
+                gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 0);
                 break;
             case 1:
                 Debug.Log("rocket");
-                
                 gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
                 break;
             case 2:
                 Debug.Log("rockets");
-                gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
                 shotCount++;
+                if (shotCount > 2) 
+                {
+                    gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 2);
+                }
+                else
+                {
+                    gameDirector.ShotItem(pos, transform.rotation, new Vector3(5, 0, 0), 1);
+                }
                 break;
             case 3:
                 Debug.Log("smoke");

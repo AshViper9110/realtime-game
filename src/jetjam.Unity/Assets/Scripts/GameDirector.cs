@@ -12,13 +12,13 @@ using UnityEngine;
 using UnityEngine.Splines;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using static UnityEditor.Progress;
 
 public class GameDirector : MonoBehaviour
 {
     public static bool isStart = false;
 
     RoomModel roomModel;
-    UserModel userModel;
     UserListUI userListUI;
 
     // ================= Vehicle =================
@@ -62,6 +62,7 @@ public class GameDirector : MonoBehaviour
     [Header("Item Placement")]
     [SerializeField] private SplineContainer spline;
     public GameObject itemPrefab;
+    public List<GameObject> haveItem = new List<GameObject>();
 
     public int laneCount = 4;
     public float laneSpacing = 2.5f;     // 横方向の間隔
@@ -170,6 +171,7 @@ public class GameDirector : MonoBehaviour
         item.SetVisible(false);
         await roomModel.ItemObjectAsync(item.instanceId);
         player.GetComponent<PrayerCon>().itemIndex = item.itemTypeId;
+        haveItem[item.itemTypeId].SetActive(true);
     }
 
 
@@ -201,7 +203,7 @@ public class GameDirector : MonoBehaviour
                 var go = Instantiate(itemPrefab, pos, rot);
                 var item = go.GetComponent<ItemObject>();
 
-                int randomType = UnityEngine.Random.Range(0, 4);
+                int randomType = UnityEngine.Random.Range(0, 3);
                 item.Initialize(instanceCounter, randomType, this);
 
                 itemObjects.Add(item);
@@ -243,6 +245,8 @@ public class GameDirector : MonoBehaviour
     public async void ShotItem(Vector3 pos, Quaternion rot, Vector3 vel, int itemId)
     {
         Debug.Log($"My Shot");
+        haveItem[itemId].SetActive(false);
+        if (itemId == 0) return;
         if (itemId != 3)
         {
             var missile = Instantiate(missilePrefab, pos, rot);
@@ -296,7 +300,6 @@ public class GameDirector : MonoBehaviour
         bg.SetActive(true);
         roomModel = GetComponent<RoomModel>();
         await roomModel.ConnectAsync();
-        userModel = GetComponent<UserModel>();
         userListUI = GetComponent<UserListUI>();
 
         roomModel.OnJoinedUser += _ => { };
@@ -321,6 +324,11 @@ public class GameDirector : MonoBehaviour
             tf = player.transform,
             vehicleIndex = vehicleIndex
         });
+
+        foreach (var item in haveItem)
+        {
+            item.SetActive(false);
+        }
 
         player.transform.position = spownpoint.transform.position;
     }

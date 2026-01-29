@@ -12,11 +12,6 @@ public class CalculateModel : MonoBehaviour
     const string ServerURL = " http://localhost:5244";
     int[] numList = { 1, 5, 2, 7, 6, 4 };
     Number number = new Number();
-    UserModel userModel = new UserModel();
-    async void Start()
-    {
-        Debug.Log(await userModel.RegistUserAsync("player1"));
-    }
 
     public async UniTask<string> Log(string text)
     {
